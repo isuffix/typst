@@ -294,6 +294,10 @@ fn lex_and_eval<'a>(
         MathTokenNode::ParsedExpr(expr) => Token::Value(expr.eval(vm)?),
         MathTokenNode::FieldAccess(fields) => {
             let value = fields.eval(vm)?;
+            if vm.inspected == Some(span) {
+                // TODO: Is this the best spot to trace the value?
+                vm.trace(value.clone());
+            }
             if let Some((func, n)) = maybe_func_call(cursor, &value, span) {
                 n_nodes = n;
                 Token::FuncCall(func)
@@ -311,6 +315,10 @@ fn lex_and_eval<'a>(
                 return Ok(ControlFlow::Break((token, n)));
             }
             let value = ident.eval(vm)?;
+            if vm.inspected == Some(span) {
+                // TODO: Is this the best spot to trace the value?
+                vm.trace(value.clone());
+            }
             if let Some((func, n)) = maybe_func_call(cursor, &value, span) {
                 n_nodes = n;
                 Token::FuncCall(func)
