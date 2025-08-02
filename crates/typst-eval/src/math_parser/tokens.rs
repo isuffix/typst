@@ -1,8 +1,9 @@
 //! Tokenize unparsed math text.
+use std::num::NonZeroUsize;
 use std::ops::ControlFlow;
 
 use ecow::{EcoString, EcoVec, eco_vec};
-use typst_library::diag::{SourceDiagnostic, SourceResult, bail};
+use typst_library::diag::{SourceDiagnostic, SourceResult, SpanPlus, bail};
 use typst_library::foundations::{Args, Content, Func, Value};
 use typst_syntax::Span;
 use typst_syntax::ast::{MathKind, MathTokenNode, TokenCursor};
@@ -16,6 +17,7 @@ pub struct TokenStream<'ast, 'vm, 'a> {
     cursor: TokenCursor<'ast>,
     mode: Mode,
     next: Option<TokenInfo>,
+    before_triv_idx: usize,
     errors: EcoVec<SourceDiagnostic>,
 }
 
@@ -74,14 +76,18 @@ pub enum Trivia {
 #[derive(Debug)]
 pub struct Marker {
     pub span: Span,
+    pub index: usize,
+    pub n_extra: usize,
 }
 
 impl<'ast, 'vm, 'a> TokenStream<'ast, 'vm, 'a> {
     /// Create a new token stream from a cursor and the vm.
     pub fn new(vm: &'vm mut Vm<'a>, mut cursor: TokenCursor<'ast>) -> Self {
         let mut errors = eco_vec![];
-        let next = lex_past_trivia(vm, &mut errors, &mut cursor, false);
-        Self { vm, cursor, mode: Mode::Normal, next, errors }
+        let before_triv_idx = 0;
+        let next = lex_past_trivia(vm, &mut errors, &mut cursor, before_triv_idx, false);
+        let mode = Mode::Normal;
+        Self { vm, cursor, mode, next, before_triv_idx, errors }
     }
 
     /// Finish the token stream by converting a final value into spanned content
@@ -101,12 +107,19 @@ impl<'ast, 'vm, 'a> TokenStream<'ast, 'vm, 'a> {
         &mut self,
         func: Func,
         args: Args,
-        (start, _end): (Marker, Marker),
+        (start, end): (Marker, Marker),
     ) -> Value {
         match call::call_func(self.vm, func, args, start.span) {
-            Ok(value) => value.spanned(start.span),
+            Ok(value) => value,
             Err(diag_vec) => {
-                self.errors.extend(diag_vec);
+                // Improve the span when just calling the function is an error.
+                for mut diag in diag_vec {
+                    if diag.span_plus.0 == start.span {
+                        let n = (end.index + end.n_extra) - start.index;
+                        diag.span_plus = SpanPlus(start.span, NonZeroUsize::new(n));
+                    };
+                    self.errors.push(diag);
+                }
                 Value::default()
             }
         }
@@ -114,15 +127,23 @@ impl<'ast, 'vm, 'a> TokenStream<'ast, 'vm, 'a> {
 
     /// Produce an error at the given marker.
     pub fn error_at(&mut self, mark: Marker, message: impl Into<EcoString>) {
-        let Marker { span } = mark;
-        let diag = SourceDiagnostic::error(span, message);
-        self.errors.push(diag);
+        let Marker { span, index: _, n_extra } = mark;
+        self.add_error(span, n_extra, message);
     }
 
     /// Produce an error from the given marker up to (excluding) the next token.
     pub fn error_from(&mut self, mark: Marker, message: impl Into<EcoString>) {
-        let Marker { span } = mark;
-        let diag = SourceDiagnostic::error(span, message);
+        let Marker { span, index, n_extra: _ } = mark;
+        // Subtracting one excludes the next node.
+        self.add_error(span, (self.before_triv_idx - 1) - index, message);
+    }
+
+    fn add_error(&mut self, span: Span, n: usize, message: impl Into<EcoString>) {
+        let diag = if let Some(nonzero) = NonZeroUsize::new(n) {
+            SourceDiagnostic::error_multiple_nodes(span, nonzero, message)
+        } else {
+            SourceDiagnostic::error(span, message)
+        };
         self.errors.push(diag);
     }
 
@@ -202,8 +223,15 @@ impl<'ast, 'vm, 'a> TokenStream<'ast, 'vm, 'a> {
             }
             _ => false,
         };
-        self.next =
-            lex_past_trivia(self.vm, &mut self.errors, &mut self.cursor, at_arg_start);
+        // Add 1 for the previous token's starting node.
+        self.before_triv_idx = 1 + previous.mark.index + previous.mark.n_extra;
+        self.next = lex_past_trivia(
+            self.vm,
+            &mut self.errors,
+            &mut self.cursor,
+            self.before_triv_idx,
+            at_arg_start,
+        );
 
         previous.mark
     }
@@ -214,6 +242,7 @@ fn lex_past_trivia(
     vm: &mut Vm,
     errors: &mut EcoVec<SourceDiagnostic>,
     cursor: &mut TokenCursor,
+    mut start_idx: usize,
     at_arg_start: bool,
 ) -> Option<TokenInfo> {
     let mark;
@@ -225,12 +254,12 @@ fn lex_past_trivia(
                 // Note: in all current error cases we only use the original
                 // token, so we don't update the cursor here.
                 errors.extend(err_vec);
-                mark = Marker { span };
+                mark = Marker { span, index: start_idx, n_extra: 0 };
                 break Token::Value(Value::default());
             }
             Ok(ControlFlow::Break((token, n))) => {
                 cursor.confirm(n);
-                mark = Marker { span };
+                mark = Marker { span, index: start_idx, n_extra: n };
                 break token;
             }
             // Skip trivia preceding real tokens and continue the loop.
@@ -242,6 +271,7 @@ fn lex_past_trivia(
                 _ => {}
             },
         }
+        start_idx += 1;
     };
     Some(TokenInfo { mark, trivia, token })
 }
