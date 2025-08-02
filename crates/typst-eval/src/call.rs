@@ -63,22 +63,26 @@ impl Eval for ast::FuncCall<'_> {
             .map_err(|err| hint_if_shadowed_std(vm, &self.callee(), err))
             .at(callee_span)?;
 
-        let point = || Tracepoint::Call(func.name().map(Into::into));
-        let f = || {
-            func.call(&mut vm.engine, vm.context, args_value).trace(
-                vm.world(),
-                point,
-                span,
-            )
-        };
-
-        // Stacker is broken on WASM.
-        #[cfg(target_arch = "wasm32")]
-        return f();
-
-        #[cfg(not(target_arch = "wasm32"))]
-        stacker::maybe_grow(32 * 1024, 2 * 1024 * 1024, f)
+        call_func(vm, func, args_value, span)
     }
+}
+
+/// Allocate stack space and call the function with tracing for diagnostics.
+///
+/// This function is separated out for use in runtime math function calls.
+pub fn call_func(vm: &mut Vm, func: Func, args: Args, span: Span) -> SourceResult<Value> {
+    let point = || Tracepoint::Call(func.name().map(Into::into));
+    let f = || {
+        func.call(&mut vm.engine, vm.context, args)
+            .trace(vm.world(), point, span)
+    };
+
+    // Stacker is broken on WASM.
+    #[cfg(target_arch = "wasm32")]
+    return f();
+
+    #[cfg(not(target_arch = "wasm32"))]
+    stacker::maybe_grow(32 * 1024, 2 * 1024 * 1024, f)
 }
 
 impl Eval for ast::Args<'_> {
@@ -273,7 +277,7 @@ pub fn eval_closure(
     Ok(output)
 }
 
-/// This used only as the return value of `eval_field_call`.
+/// This is only used as the return value of [`eval_field_call`].
 /// - `Normal` means that we have a function to call and the arguments to call it with.
 /// - `Resolved` means that we have already resolved the call and have the value.
 enum FieldCall {
@@ -713,8 +717,20 @@ mod tests {
         test(s, "$ #x-bar #x_bar $", &["x-bar", "x_bar"]);
 
         // Named-params.
-        test(s, "$ foo(bar: y) $", &["foo"]);
-        test(s, "$ foo(x-y: 1, bar-z: 2) $", &["foo"]);
+        test(s, "$ foo(bar: y) $", &["bar", "foo"]);
+        test(s, "$ foo(x-y: 1, bar-z: 2) $", &["bar", "foo"]);
+        // Named-params in math aren't fully parsed until runtime.
+        //
+        // The captures algorithm with runtime parsing is naive. E.g. we capture
+        // the variable `bar` even though it is later parsed as a named param
+        // and we don't actually access any `bar` variable.
+        //
+        // However, capturing too many variables isn't a problem because there's
+        // no way for another piece of code to try to reference such a variable
+        // without also causing a real capture itself. Since this isn't actually
+        // exploitable in real code, the only downside is minor performance
+        // which is worth avoiding extra complexity required to improve the
+        // algorithm.
 
         // Field access in math.
         test(s, "$ foo.bar $", &["foo"]);
