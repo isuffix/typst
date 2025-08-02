@@ -248,6 +248,7 @@ pub enum Expr<'a> {
     Equation(Equation<'a>),
     /// The contents of a mathematical equation: `x^2 + 1`.
     Math(Math<'a>),
+    // Note that we do not add `MathTokens` as an expression.
     /// A lone text fragment in math: `x`, `25`, `3.1415`, `=`, `[`.
     MathText(MathText<'a>),
     /// An identifier in math: `pi`.
@@ -817,7 +818,7 @@ node! {
 
 impl<'a> Equation<'a> {
     /// The contained math.
-    pub fn body(self) -> Math<'a> {
+    pub fn body(self) -> MaybeParsedMath<'a> {
         self.0.cast_first()
     }
 
@@ -849,6 +850,36 @@ impl<'a> Math<'a> {
                 iter.next_back().map(SyntaxNode::kind),
                 Some(SyntaxKind::RightParen)
             )
+    }
+}
+
+/// Either Parsed or Unparsed math.
+#[derive(Debug, Copy, Clone, Hash)]
+pub enum MaybeParsedMath<'a> {
+    Parsed(Math<'a>),
+    UnParsed(MathTokens<'a>),
+}
+
+impl<'a> AstNode<'a> for MaybeParsedMath<'a> {
+    fn from_untyped(node: &'a SyntaxNode) -> Option<Self> {
+        match node.kind() {
+            SyntaxKind::Math => Some(Self::Parsed(Math(node))),
+            SyntaxKind::MathTokens => Some(Self::UnParsed(MathTokens(node))),
+            _ => Option::None,
+        }
+    }
+
+    fn to_untyped(self) -> &'a SyntaxNode {
+        match self {
+            MaybeParsedMath::Parsed(math) => math.to_untyped(),
+            MaybeParsedMath::UnParsed(unparsed_math) => unparsed_math.to_untyped(),
+        }
+    }
+}
+
+impl Default for MaybeParsedMath<'_> {
+    fn default() -> Self {
+        Self::Parsed(Math::default())
     }
 }
 
@@ -1079,6 +1110,210 @@ impl<'a> MathRoot<'a> {
     pub fn radicand(self) -> Expr<'a> {
         self.0.cast_first()
     }
+}
+
+/// Whether to parse math at runtime. A temporary toggle for testing.
+pub(crate) const MATH_RUNTIME: bool = true;
+
+node! {
+    /// A flat list of unparsed tokens comprising a math equation: `x^2 + 1`.
+    struct MathTokens
+}
+
+impl<'a> MathTokens<'a> {
+    pub fn token_cursor(self) -> TokenCursor<'a> {
+        let slice = self.0.children().as_slice();
+        TokenCursor { slice, cursor: 0 }
+    }
+}
+
+/// An interface for converting and iterating through math token nodes from
+/// syntax nodes.
+///
+/// The interface is designed to reduce the number of times we call
+/// `to_math_token_node` to avoid duplicate work since we aren't generating a
+/// separate slice of converted nodes.
+pub struct TokenCursor<'a> {
+    slice: &'a [SyntaxNode],
+    cursor: usize,
+}
+
+impl<'a> TokenCursor<'a> {
+    /// Return the token after the cursor and move the cursor forward.
+    ///
+    /// Also returns the node's span for convenience in the runtime parser.
+    pub fn advance(&mut self) -> Option<(MathTokenNode<'a>, Span)> {
+        let node = self.slice.get(self.cursor)?;
+        self.cursor += 1;
+        Some((to_math_token_node(node), node.span()))
+    }
+
+    /// Return the token `n` spots ahead of the cursor and increment the given
+    /// `n` for future calls.
+    #[inline]
+    pub fn lookahead(&self, n: &mut usize) -> Option<MathTokenNode<'a>> {
+        let node = self.slice.get(self.cursor + *n)?;
+        *n += 1;
+        Some(to_math_token_node(node))
+    }
+
+    /// Move the cursor index forward by `n` nodes, confirming values found by
+    /// calling `lookahead` previously.
+    pub fn confirm(&mut self, n: usize) {
+        self.cursor += n;
+    }
+}
+
+/// An atomic math token generated from a single SyntaxNode.
+#[derive(Debug)]
+pub enum MathTokenNode<'a> {
+    /// Embedded code in math. This lets us wrap the hash so this only uses one
+    /// node in the slice.
+    // We can't use `CodeBlock` here because it creates a new scope during eval.
+    ParsedCode(Code<'a>),
+    /// A parsed expression in math that won't affect later parsing and can keep
+    /// it's normal semantics. Notably includes strings and escaped characters.
+    ParsedExpr(Expr<'a>),
+    /// A Typst identifier in math; never a single character.
+    MathIdent(MathIdent<'a>),
+    /// A field-access in math.
+    FieldAccess(FieldAccess<'a>),
+    /// A breakout for kinds that will require extra handling in the runtime
+    /// parser. Also contains the full text of the node.
+    Kinds(MathKind, &'a EcoString),
+    /// Trivia in the equation. Distinguishes between spaces and comments.
+    Trivia { is_space: bool },
+}
+
+/// The kind of math token we're working with.
+///
+/// This is designed to be just 8 bytes for efficiency.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum MathKind {
+    /// Text in math: `a`, `+`. Includes whether this text can be part of an
+    /// identifier
+    Text { single_char: Option<char>, ident_like: bool },
+    /// A number as defined by the math lexer: `123.456`.
+    Number,
+    /// A hat: `^`.
+    Hat,
+    /// An underscore: `_`.
+    Underscore,
+    /// A forward slash: `/`.
+    Slash,
+    /// A dot: `.`.
+    Dot,
+    /// A comma: `,`.
+    Comma,
+    /// A semicolon: `;`.
+    Semicolon,
+    /// A colon: `:`.
+    Colon,
+    /// A dash: `-`.
+    Minus,
+    /// An exclamation mark: `!`.
+    Bang,
+    /// A unicode root character: `√`, `∛`, `∜` with its index (if any).
+    Root { index: Option<char> },
+    /// A run of one or more single quotes: `'''`.
+    Primes { count: u32 },
+    /// A unicode `MathClass::Opening` character.
+    Opening(char),
+    /// A unicode `MathClass::Closing` character.
+    Closing(char),
+}
+
+impl MathKind {
+    /// Which kinds can render as a symbol. Importantly this converts a minus
+    /// into the math shorthand minus character.
+    pub fn render_as_symbol(self) -> Option<char> {
+        match self {
+            MathKind::Text { single_char, .. } => single_char,
+            MathKind::Dot => Some('.'),
+            MathKind::Comma => Some(','),
+            MathKind::Semicolon => Some(';'),
+            MathKind::Colon => Some(':'),
+            MathKind::Minus => Some('−'), // <- Matches the shorthand character.
+            MathKind::Bang => Some('!'),
+            MathKind::Opening(c) => Some(c),
+            MathKind::Closing(c) => Some(c),
+            _ => Option::None,
+        }
+    }
+}
+
+/// Convert nodes to semantically rich math token nodes for the runtime parser.
+fn to_math_token_node(node: &SyntaxNode) -> MathTokenNode<'_> {
+    let math_kind = match node.kind() {
+        // First, early return for nodes that have already been fully parsed.
+        SyntaxKind::Code => return MathTokenNode::ParsedCode(Code(node)),
+
+        // Trivia.
+        SyntaxKind::Space => return MathTokenNode::Trivia { is_space: true },
+        SyntaxKind::LineComment => return MathTokenNode::Trivia { is_space: false },
+        SyntaxKind::BlockComment => return MathTokenNode::Trivia { is_space: false },
+
+        // These already exist in the main `Expr` enum.
+        SyntaxKind::MathShorthand => {
+            return MathTokenNode::ParsedExpr(Expr::MathShorthand(MathShorthand(node)));
+        }
+        SyntaxKind::Linebreak => {
+            return MathTokenNode::ParsedExpr(Expr::Linebreak(Linebreak(node)));
+        }
+        SyntaxKind::MathAlignPoint => {
+            return MathTokenNode::ParsedExpr(Expr::MathAlignPoint(MathAlignPoint(node)));
+        }
+        SyntaxKind::Escape => {
+            return MathTokenNode::ParsedExpr(Expr::Escape(Escape(node)));
+        }
+        SyntaxKind::Str => return MathTokenNode::ParsedExpr(Expr::Str(Str(node))),
+
+        // These can potentially start a function call.
+        SyntaxKind::MathIdent => return MathTokenNode::MathIdent(MathIdent(node)),
+        SyntaxKind::FieldAccess => {
+            return MathTokenNode::FieldAccess(FieldAccess(node));
+        }
+
+        // Second, just get the `MathKind` for the rest and return below.
+        SyntaxKind::Dot => MathKind::Dot,
+        SyntaxKind::Hat => MathKind::Hat,
+        SyntaxKind::Bang => MathKind::Bang,
+        SyntaxKind::Colon => MathKind::Colon,
+        SyntaxKind::Comma => MathKind::Comma,
+        SyntaxKind::Minus => MathKind::Minus,
+        SyntaxKind::Slash => MathKind::Slash,
+        SyntaxKind::Semicolon => MathKind::Semicolon,
+        SyntaxKind::Underscore => MathKind::Underscore,
+        SyntaxKind::MathPrimes => MathKind::Primes { count: node.len() as u32 },
+        SyntaxKind::MathOpening if node.text() == "[|" => MathKind::Opening('⟦'),
+        SyntaxKind::MathClosing if node.text() == "|]" => MathKind::Closing('⟧'),
+        SyntaxKind::MathOpening => MathKind::Opening(node.text().chars().next().unwrap()),
+        SyntaxKind::MathClosing => MathKind::Closing(node.text().chars().next().unwrap()),
+        SyntaxKind::Root => MathKind::Root {
+            index: match node.text().chars().next() {
+                Some('∜') => Some('4'),
+                Some('∛') => Some('3'),
+                Some('√') | _ => Option::None,
+            },
+        },
+        SyntaxKind::MathText => match MathText(node).get() {
+            MathTextKind::Character(c) => MathKind::Text {
+                single_char: Some(c),
+                ident_like: crate::is_ident(c.encode_utf8(&mut [0; 4])),
+            },
+            MathTextKind::Number(_) => MathKind::Number,
+        },
+        SyntaxKind::Text => MathKind::Text {
+            single_char: Option::None,
+            ident_like: false, // Otherwise this would've been lexed as a `MathIdent`.
+        },
+
+        _ => panic!(
+            "error in the lexer when generating math tokens, got kind: {:#?}",
+            node.kind()
+        ),
+    };
+    MathTokenNode::Kinds(math_kind, node.text())
 }
 
 node! {
