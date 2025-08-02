@@ -1037,10 +1037,8 @@ node! {
 impl MathPrimes<'_> {
     /// The number of grouped primes.
     pub fn count(self) -> usize {
-        self.0
-            .children()
-            .filter(|node| matches!(node.kind(), SyntaxKind::Prime))
-            .count()
+        // We can use the byte length because single quotes are one byte each.
+        self.0.text().len()
     }
 }
 
