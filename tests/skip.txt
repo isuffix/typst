@@ -1,3 +1,0 @@
-math-frac-horizontal-lr-paren
-math-frac-horizontal
-math-frac-styles-inline
