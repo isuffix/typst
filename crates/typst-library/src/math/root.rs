@@ -6,7 +6,7 @@ use crate::math::Mathy;
 /// A square root.
 ///
 /// ```example
-/// $ sqrt(3 - 2 sqrt(2)) = sqrt(2) - 1 $
+/// $ .sqrt(3 - 2 .sqrt(2)) = .sqrt(2) - 1 $
 /// ```
 #[func(title = "Square Root")]
 pub fn sqrt(
@@ -20,7 +20,7 @@ pub fn sqrt(
 /// A general root.
 ///
 /// ```example
-/// $ root(3, x) $
+/// $ .root(3, x) $
 /// ```
 #[elem(Mathy)]
 pub struct RootElem {

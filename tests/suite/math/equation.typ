@@ -6,15 +6,15 @@
 #set math.equation(numbering: "(I)")
 
 We define $x$ in preparation of @fib:
-$ phi.alt := (1 + sqrt(5)) / 2 $ <ratio>
+$ phi.alt := (1 + .sqrt(5)) / 2 $ <ratio>
 
 With @ratio, we get
-$ F_n = round(1 / sqrt(5) phi.alt^n) $ <fib>
+$ F_n = .round(1 / .sqrt(5) phi.alt^n) $ <fib>
 
 --- math-equation-font paged ---
 // Test different font.
 #show math.equation: set text(font: "Fira Math")
-$ v := vec(1 + 2, 2 - 4, sqrt(3), arrow(x)) + 1 $
+$ v := .vec(1 + 2, 2 - 4, .sqrt(3), .arrow(x)) + 1 $
 
 --- math-equation-show-rule paged ---
 This is small: $sum_(i=0)^n$
@@ -303,4 +303,4 @@ Looks at the @quadratic formula.
 // We expect all of these to have a green stroke.
 #set text(stroke: green + 0.5pt)
 
-A $B^2$ $ grave(C)' $
+A $B^2$ $ .grave(C)' $

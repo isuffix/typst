@@ -9,7 +9,7 @@ use crate::math::Mathy;
 /// # Example
 /// ```example
 /// $ 1/2 < (x+1)/2 $
-/// $ ((x+1)) / 2 = frac(a, b) $
+/// $ ((x+1)) / 2 = .frac(a, b) $
 /// ```
 ///
 /// # Syntax
@@ -30,9 +30,9 @@ pub struct FracElem {
     /// How the fraction should be laid out.
     ///
     /// ```example:"Styles"
-    /// $ frac(x, y, style: "vertical") $
-    /// $ frac(x, y, style: "skewed") $
-    /// $ frac(x, y, style: "horizontal") $
+    /// $ .frac(x, y, style: "vertical") $
+    /// $ .frac(x, y, style: "skewed") $
+    /// $ .frac(x, y, style: "horizontal") $
     /// ```
     ///
     /// ```example:"Setting the default"
@@ -96,8 +96,8 @@ pub enum FracStyle {
 ///
 /// # Example
 /// ```example
-/// $ binom(n, k) $
-/// $ binom(n, k_1, k_2, k_3, ..., k_m) $
+/// $ .binom(n, k) $
+/// $ .binom(n, k_1, k_2, k_3, ..., k_m) $
 /// ```
 #[elem(title = "Binomial", Mathy)]
 pub struct BinomElem {

@@ -67,8 +67,8 @@
 
     # Example
     ```example
-    $ sqrt(3 - 2 sqrt(2)) = sqrt(2) - 1 $
-    $ root(3, x) $
+    $ .sqrt(3 - 2 .sqrt(2)) = .sqrt(2) - 1 $
+    $ .root(3, x) $
     ```
 
 - name: attach
@@ -119,8 +119,8 @@
     # Example
     ```example
     $ [a, b/2] $
-    $ lr(]sum_(x=1)^n], size: #50%) x $
-    $ abs((x + y) / 2) $
+    $ .lr(]sum_(x=1)^n], size: #50%) x $
+    $ .abs((x + y) / 2) $
     $ \{ (x / y) \} $
     #set math.lr(size: 1em)
     $ { (a / b), a, b in (0; 1/2] } $

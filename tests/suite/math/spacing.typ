@@ -4,7 +4,7 @@
 // Test spacing cases.
 $ä, +, c, (, )$ \
 $=), (+), {times}$ \
-$⟧<⟦, abs(-), [=$ \
+$⟧<⟦, .abs(-), [=$ \
 $a=b, a==b$ \
 $-a, +a$ \
 $a not b$ \
@@ -36,11 +36,11 @@ $ { x in RR | x "is natural" and x < 10 } $
 --- math-spacing-decorated paged ---
 // Test spacing for operators with decorations and modifiers on them
 #set page(width: auto)
-$a equiv b + c - d => e log 5 op("ln") 6$ \
-$a cancel(equiv) b overline(+) c arrow(-) d hat(=>) e cancel(log) 5 dot(op("ln")) 6$ \
-$a overbrace(equiv) b underline(+) c grave(-) d underbracket(=>) e circle(log) 5 caron(op("ln")) 6$ \
+$a equiv b + c - d => e log 5 .op("ln") 6$ \
+$a .cancel(equiv) b .overline(+) c .arrow(-) d .hat(=>) e .cancel(log) 5 .dot(.op("ln")) 6$ \
+$a .overbrace(equiv) b .underline(+) c .grave(-) d .underbracket(=>) e .circle(log) 5 .caron(.op("ln")) 6$ \
 \
-$a attach(equiv, tl: a, tr: b) b attach(limits(+), t: a, b: b) c tilde(-) d breve(=>) e attach(limits(log), t: a, b: b) 5 attach(op("ln"), tr: a, bl: b) 6$
+$a .attach(equiv, tl: a, tr: b) b .attach(.limits(+), t: a, b: b) c .tilde(-) d .breve(=>) e .attach(.limits(log), t: a, b: b) 5 .attach(.op("ln"), tr: a, bl: b) 6$
 
 --- math-spacing-weak paged ---
 // Test weak spacing
@@ -52,7 +52,7 @@ $integral f(x) #h(0.166em, weak: true)dif x$
 
 --- math-spacing-script paged ---
 // Test spacing in script size
-$x^(a #h(1em) b) + x^x^(a #h(1em) b) + sscript(a #h(1em) b)$
+$x^(a #h(1em) b) + x^x^(a #h(1em) b) + .sscript(a #h(1em) b)$
 
 --- math-spacing-ignorant paged ---
 // Test spacing with ignorant elements

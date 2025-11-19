@@ -59,10 +59,10 @@ pub struct EquationElem {
     /// #set math.equation(numbering: "(1)")
     ///
     /// We define:
-    /// $ phi.alt := (1 + sqrt(5)) / 2 $ <ratio>
+    /// $ phi.alt := (1 + .sqrt(5)) / 2 $ <ratio>
     ///
     /// With @ratio, we get:
-    /// $ F_n = floor(1 / sqrt(5) phi.alt^n) $
+    /// $ F_n = .floor(1 / .sqrt(5) phi.alt^n) $
     /// ```
     pub numbering: Option<Numbering>,
 
@@ -77,7 +77,7 @@ pub struct EquationElem {
     /// #set math.equation(numbering: "(1)", number-align: bottom)
     ///
     /// We can calculate:
-    /// $ E &= sqrt(m_0^2 + p^2) \
+    /// $ E &= .sqrt(m_0^2 + p^2) \
     ///     &approx 125 "GeV" $
     /// ```
     #[default(SpecificAlignment::Both(OuterHAlignment::End, VAlignment::Horizon))]
@@ -94,10 +94,10 @@ pub struct EquationElem {
     /// #set math.equation(numbering: "(1)", supplement: [Eq.])
     ///
     /// We define:
-    /// $ phi.alt := (1 + sqrt(5)) / 2 $ <ratio>
+    /// $ phi.alt := (1 + .sqrt(5)) / 2 $ <ratio>
     ///
     /// With @ratio, we get:
-    /// $ F_n = floor(1 / sqrt(5) phi.alt^n) $
+    /// $ F_n = .floor(1 / .sqrt(5) phi.alt^n) $
     /// ```
     pub supplement: Smart<Option<Supplement>>,
 

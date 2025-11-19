@@ -21,9 +21,9 @@ use crate::math::Mathy;
 ///
 /// # Example
 /// ```example
-/// $grave(a) = accent(a, `)$ \
-/// $arrow(a) = accent(a, arrow)$ \
-/// $tilde(a) = accent(a, \u{0303})$
+/// $.grave(a) = .accent(a, `)$ \
+/// $.arrow(a) = .accent(a, arrow)$ \
+/// $.tilde(a) = .accent(a, \u{0303})$
 /// ```
 #[elem(Mathy)]
 pub struct AccentElem {
@@ -31,7 +31,7 @@ pub struct AccentElem {
     /// letters.
     ///
     /// ```example
-    /// $arrow(A B C)$
+    /// $.arrow(A B C)$
     /// ```
     #[required]
     pub base: Content,
@@ -67,7 +67,7 @@ pub struct AccentElem {
     /// The size of the accent, relative to the width of the base.
     ///
     /// ```example
-    /// $dash(A, size: #150%)$
+    /// $.dash(A, size: #150%)$
     /// ```
     #[default(Rel::one())]
     pub size: Rel<Length>,
@@ -78,7 +78,7 @@ pub struct AccentElem {
     /// This enables the `dtls` OpenType feature.
     ///
     /// ```example
-    /// $hat(dotless: #false, i)$
+    /// $.hat(dotless: #false, i)$
     /// ```
     #[default(true)]
     pub dotless: bool,

@@ -8,7 +8,7 @@ $ sum_(i=#emoji.apple)^#emoji.apple.red i + monkey/2 $
 
 --- math-table paged ---
 // Test tables.
-$ x := #table(columns: 2)[x][y]/mat(1, 2, 3)
+$ x := #table(columns: 2)[x][y]/.mat(1, 2, 3)
      = #table[A][B][C] $
 
 --- math-equation-auto-wrapping paged ---
@@ -23,46 +23,46 @@ $#here[f] := #here[Hi there]$.
 
 --- math-root-show-rule-1 paged ---
 #show "√": set text(red, font: "Noto Sans Math")
-$ root(2, (a + b) / c) $
+$ .root(2, (a + b) / c) $
 
 --- math-root-show-rule-2 paged ---
 #show "√": set text(2em)
-$ sqrt(2) $
+$ .sqrt(2) $
 
 --- math-root-show-rule-3 paged ---
 // Test cursed show rule.
 #show "√": "!"
-$ sqrt(2) root(2, 2) $
+$ .sqrt(2) .root(2, 2) $
 
 --- math-root-show-rule-4 paged ---
 #show math.root: set text(red)
-$ sqrt(x + y) root(4, 2) $
+$ .sqrt(x + y) .root(4, 2) $
 
 --- math-root-show-rule-5 paged ---
 #show math.root: it => {
   show "√": set text(purple) if it.index == none
   it
 }
-$ sqrt(1/2) root(3, 1/2) $
+$ .sqrt(1/2) .root(3, 1/2) $
 
 --- math-delim-show-rule-1 paged ---
 #show regex("\[|\]"): set text(green, font: "Noto Sans Math")
-$ mat(delim: \[, a, b, c; d, e, f; g, h, i) quad [x + y] $
+$ .mat(delim: \[, a, b, c; d, e, f; g, h, i) quad [x + y] $
 
 --- math-delim-show-rule-2 paged ---
 #show math.vec: it => {
   show regex("\(|\)"): set text(blue)
   it
 }
-$ vec(1, 0, 0), mat(1; 0; 0), (1), binom(n, k) $
+$ .vec(1, 0, 0), .mat(1; 0; 0), (1), .binom(n, k) $
 
 --- math-delim-show-rule-3 paged ---
 #show "⏟": set text(fuchsia)
-$ underbrace(1 + 1 = 2, "obviously") $
+$ .underbrace(1 + 1 = 2, "obviously") $
 
 --- math-delim-show-rule-4 paged ---
 #show "{": set text(navy)
-$ cases(x + y + z = 0, 2x - y = 0, -5y + 2z = 0) $
+$ .cases(x + y + z = 0, 2x - y = 0, -5y + 2z = 0) $
 
 --- math-delim-show-rule-5 paged ---
 #show regex("\(|\)"): set text(1.5em)
@@ -80,25 +80,25 @@ $ 1 + 1 = +2 $
 
 --- math-accent-show-rule-1 paged ---
 #show "\u{0302}": set text(blue, font: "XITS Math")
-$hat(x)$, $hat(hat(x))$, x\u{0302}
+$.hat(x)$, $.hat(.hat(x))$, x\u{0302}
 
 --- math-accent-show-rule-2 paged ---
 #let rhat(x) = {
   show "\u{0302}": set text(red)
   math.hat(x)
 }
-$hat(x)$, $rhat(x)$, $hat(rhat(x))$, $rhat(hat(x))$, x\u{0302}
+$.hat(x)$, $.rhat(x)$, $.hat(.rhat(x))$, $.rhat(.hat(x))$, x\u{0302}
 
 --- math-accent-show-rule-3 paged ---
 #show math.accent: it => {
   show "\u{0300}": set text(green)
   it
 }
-$grave(x)$, x\u{0300}
+$.grave(x)$, x\u{0300}
 
 --- math-accent-show-rule-4 paged ---
 #show "\u{0302}": box(inset: (bottom: 5pt), text(0.5em, sym.diamond.small))
-$hat(X)$, $hat(x)$
+$.hat(X)$, $.hat(x)$
 
 --- math-box-without-baseline paged ---
 // Test boxes without a baseline act as if the baseline is at the base
@@ -157,10 +157,10 @@ $ a tack b $
 
 $ pi a $
 $ my a $
-$ 1 + sqrt(x/2) + sqrt(#hide($x/2$)) $
+$ 1 + .sqrt(x/2) + .sqrt(#hide($x/2$)) $
 $ a x #link("url", $+ b$) $
 $ f f1 f2 $
-$ vec(1,2) * 2 $
+$ .vec(1,2) * 2 $
 
 --- issue-math-realize-hide paged ---
 $ x^2 #hide[$(>= phi.alt) union y^2 0$] z^2 $
@@ -181,18 +181,18 @@ and #hide[$ f(x) := x^2 $]
 }
 #let baz(..sink) = {
   // Return an equation piece built by joining arrays
-  sink.pos().map(x => $hat(#x)$).join(sym.and)
+  sink.pos().map(x => $.hat(#x)$).join(sym.and)
 }
 
-Inline $2 foo(alpha, (M+foo(a, b)))$.
+Inline $2 .foo(alpha, (M+.foo(a, b)))$.
 
-Inline $2 bar(alpha, (M+foo(a, b)))$.
+Inline $2 .bar(alpha, (M+.foo(a, b)))$.
 
-Inline $2 baz(x,y,baz(u, v))$.
+Inline $2 .baz(x,y,.baz(u, v))$.
 
-$ 2 foo(alpha, (M+foo(a, b))) $
-$ 2 bar(alpha, (M+foo(a, b))) $
-$ 2 baz(x,y,baz(u, v)) $
+$ 2 .foo(alpha, (M+.foo(a, b))) $
+$ 2 .bar(alpha, (M+.foo(a, b))) $
+$ 2 .baz(x,y,.baz(u, v)) $
 
 --- math-size-resolve paged ---
 #let length = context repr(measure("--").width)
@@ -207,7 +207,7 @@ $ stuff sum^stuff_square square $
 --- math-size-math-content-1 paged ---
 // Nested math content has styles overwritten by the inner equation.
 // Ideally the widths would match the actual length of the arrows.
-#let arrow = $stretch(->)^"much text"$
+#let arrow = $.stretch(->)^"much text"$
 $ arrow A^arrow A^A^arrow $
 #let width = context measure(arrow).width
 $ width A^width A^A^width $
@@ -217,14 +217,14 @@ $ width A^width A^A^width $
 // Ideally the heights would match the actual height of the sums.
 #let sum = $sum^2$
 #let height(x) = context measure(x).height
-$sum = height(sum) $
-$ sum != height(sum) $
+$sum = .height(sum) $
+$ sum != .height(sum) $
 
 --- math-size-math-content-3 paged ---
 // Sum doesn't get wrapped in math as it is a single expr.
 // Ideally the height would match the actual height of the sum.
 #let height(x) = context measure(x).height
-$ sum != height(sum) $
+$ sum != .height(sum) $
 
 --- math-text-size paged ---
 // Values retrieved from function are not resolved at the moment.

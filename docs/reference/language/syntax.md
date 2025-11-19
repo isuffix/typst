@@ -77,7 +77,7 @@ syntax specific to math mode follows:
 | Implied multiplication | `[$x y$]`                | [Math]($category/math)   |
 | Symbol shorthand       | `[$->$]`, `[$!=$]`       | [Symbols]($category/symbols/sym) |
 | Text/string in math    | `[$a "is natural"$]`     | [Math]($category/math)   |
-| Math function call     | `[$floor(x)$]`           | [Math]($category/math)   |
+| Math function call     | `[$.floor(x)$]`          | [Math]($category/math)   |
 | Code expression        | `[$#rect(width: 1cm)$]`  | [Scripting]($scripting/#expressions) |
 | Character escape       | `[$x\^2$]`               | [Below](#escapes)        |
 | Comment                | `[$/* comment */$]`      | [Below](#comments)       |

@@ -37,7 +37,7 @@ pub struct LrElem {
 /// Scales delimiters vertically to the nearest surrounding `{lr()}` group.
 ///
 /// ```example
-/// $ { x mid(|) sum_(i=1)^n w_i|f_i (x)| < 1 } $
+/// $ { x .mid(|) sum_(i=1)^n w_i|f_i (x)| < 1 } $
 /// ```
 #[elem(Mathy)]
 pub struct MidElem {
@@ -49,7 +49,7 @@ pub struct MidElem {
 /// Floors an expression.
 ///
 /// ```example
-/// $ floor(x/2) $
+/// $ .floor(x/2) $
 /// ```
 #[func]
 pub fn floor(
@@ -67,7 +67,7 @@ pub fn floor(
 /// Ceils an expression.
 ///
 /// ```example
-/// $ ceil(x/2) $
+/// $ .ceil(x/2) $
 /// ```
 #[func]
 pub fn ceil(
@@ -85,7 +85,7 @@ pub fn ceil(
 /// Rounds an expression.
 ///
 /// ```example
-/// $ round(x/2) $
+/// $ .round(x/2) $
 /// ```
 #[func]
 pub fn round(
@@ -103,7 +103,7 @@ pub fn round(
 /// Takes the absolute value of an expression.
 ///
 /// ```example
-/// $ abs(x/2) $
+/// $ .abs(x/2) $
 /// ```
 #[func]
 pub fn abs(
@@ -121,7 +121,7 @@ pub fn abs(
 /// Takes the norm of an expression.
 ///
 /// ```example
-/// $ norm(x/2) $
+/// $ .norm(x/2) $
 /// ```
 #[func]
 pub fn norm(

@@ -6,7 +6,7 @@ use crate::math::EquationElem;
 /// Bold font style in math.
 ///
 /// ```example
-/// $ bold(A) := B^+ $
+/// $ .bold(A) := B^+ $
 /// ```
 #[func(keywords = ["mathbf"])]
 pub fn bold(
@@ -19,7 +19,7 @@ pub fn bold(
 /// Upright (non-italic) font style in math.
 ///
 /// ```example
-/// $ upright(A) != A $
+/// $ .upright(A) != A $
 /// ```
 #[func(keywords = ["mathup"])]
 pub fn upright(
@@ -54,7 +54,7 @@ pub fn serif(
 /// Sans-serif font style in math.
 ///
 /// ```example
-/// $ sans(A B C) $
+/// $ .sans(A B C) $
 /// ```
 #[func(title = "Sans Serif", keywords = ["mathsf"])]
 pub fn sans(
@@ -67,7 +67,7 @@ pub fn sans(
 /// Calligraphic (chancery) font style in math.
 ///
 /// ```example
-/// Let $cal(P)$ be the set of ...
+/// Let $.cal(P)$ be the set of ...
 /// ```
 ///
 /// This is the default calligraphic/script style for most math fonts. See
@@ -83,8 +83,8 @@ pub fn cal(
 /// Script (roundhand) font style in math.
 ///
 /// ```example
-/// $scr(L)$ is not the set of linear
-/// maps $cal(L)$.
+/// $.scr(L)$ is not the set of linear
+/// maps $.cal(L)$.
 /// ```
 ///
 /// There are two ways that fonts can support differentiating `cal` and `scr`.
@@ -100,10 +100,10 @@ pub fn cal(
 /// ```example:"Recreation using stylistic set 1"
 /// #let scr(it) = text(
 ///   stylistic-set: 1,
-///   $cal(it)$,
+///   $.cal(it)$,
 /// )
 ///
-/// We establish $cal(P) != scr(P)$.
+/// We establish $.cal(P) != .scr(P)$.
 /// ```
 #[func(title = "Script Style", keywords = ["mathscr", "roundhand"])]
 pub fn scr(
@@ -116,7 +116,7 @@ pub fn scr(
 /// Fraktur font style in math.
 ///
 /// ```example
-/// $ frak(P) $
+/// $ .frak(P) $
 /// ```
 #[func(title = "Fraktur", keywords = ["mathfrak"])]
 pub fn frak(
@@ -129,7 +129,7 @@ pub fn frak(
 /// Monospace font style in math.
 ///
 /// ```example
-/// $ mono(x + y = z) $
+/// $ .mono(x + y = z) $
 /// ```
 #[func(title = "Monospace", keywords = ["mathtt"])]
 pub fn mono(
@@ -145,8 +145,8 @@ pub fn mono(
 /// through [symbols]($category/symbols/sym) of the form `NN` and `RR`.
 ///
 /// ```example
-/// $ bb(b) $
-/// $ bb(N) = NN $
+/// $ .bb(b) $
+/// $ .bb(N) = NN $
 /// $ f: NN -> RR $
 /// ```
 #[func(title = "Blackboard Bold", keywords = ["mathbb"])]
@@ -162,7 +162,7 @@ pub fn bb(
 /// This is the normal size for block equations.
 ///
 /// ```example
-/// $sum_i x_i/2 = display(sum_i x_i/2)$
+/// $sum_i x_i/2 = .display(sum_i x_i/2)$
 /// ```
 #[func(title = "Display Size", keywords = ["displaystyle"])]
 pub fn display(
@@ -184,7 +184,7 @@ pub fn display(
 ///
 /// ```example
 /// $ sum_i x_i/2
-///     = inline(sum_i x_i/2) $
+///     = .inline(sum_i x_i/2) $
 /// ```
 #[func(title = "Inline Size", keywords = ["textstyle"])]
 pub fn inline(
@@ -205,7 +205,7 @@ pub fn inline(
 /// This is the smaller size used in powers or sub- or superscripts.
 ///
 /// ```example
-/// $sum_i x_i/2 = script(sum_i x_i/2)$
+/// $sum_i x_i/2 = .script(sum_i x_i/2)$
 /// ```
 #[func(title = "Script Size", keywords = ["scriptstyle"])]
 pub fn script(
@@ -227,7 +227,7 @@ pub fn script(
 /// (script of the script).
 ///
 /// ```example
-/// $sum_i x_i/2 = sscript(sum_i x_i/2)$
+/// $sum_i x_i/2 = .sscript(sum_i x_i/2)$
 /// ```
 #[func(title = "Script-Script Size", keywords = ["scriptscriptstyle"])]
 pub fn sscript(

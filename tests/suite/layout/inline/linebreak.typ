@@ -157,7 +157,7 @@ pleasing way.
   columns: (70pt,) * 1,
   align: horizon + center,
   stroke: 0.6pt,
-  [$mat(2241/2210,-71/1105;-71/1105,147/1105)$],
+  [$.mat(2241/2210,-71/1105;-71/1105,147/1105)$],
 )
 
 --- linebreak-default-ignorables paged ---

@@ -274,7 +274,7 @@ vector, we can use the [`vec`]($math.vec) function. Within math mode, function
 calls don't need to start with the `#` character.
 
 ```example
-$ v := vec(x_1, x_2, x_3) $
+$ v := .vec(x_1, x_2, x_3) $
 ```
 
 Some functions are only available within math mode. For example, the

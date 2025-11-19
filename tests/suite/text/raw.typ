@@ -226,15 +226,15 @@ for i in range(10):
 1 + 2/3
 a^b
 hello
-hello()
+.hello()
 box[]
 hello.world
-hello.world()
-hello.my.world()
+.hello.world()
+.hello.my.world()
 f_zeta(x), f_zeta(x)/1
-emph(hello.my.world())
-emph(hello.my().world)
-emph(hello.my().world())
+.emph(.hello.my.world())
+.emph(.hello.my().world)
+.emph(.hello.my().world())
 #hello
 #hello()
 #hello.world
@@ -247,7 +247,7 @@ emph(hello.my().world())
 #set page(width: auto)
 ```typm
 "string" - + * ::= & \
-|=> & [|define(x: #y, x::= y)|]
+|=> & [|.define(x: #y, x::= y)|]
 ```
 
 --- raw-highlight-rust paged ---

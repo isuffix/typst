@@ -12,7 +12,7 @@ you can use the [hash syntax]($scripting/#expressions).
 ```example
 $ A = pi r^2 $
 $ "area" = pi dot "radius"^2 $
-$ cal(A) :=
+$ .cal(A) :=
     { x in RR | x "is natural" } $
 #let x = 5
 $ #x < 17 $
@@ -53,12 +53,12 @@ Math mode supports special function calls without the hash prefix. In these
   (`;`) merges preceding arguments separated by commas into an array argument.
 
 ```example
-$ frac(a^2, 2) $
-$ vec(1, 2, delim: "[") $
-$ mat(1, 2; 3, 4) $
-$ mat(..#range(1, 5).chunks(2)) $
+$ .frac(a^2, 2) $
+$ .vec(1, 2, delim: "[") $
+$ .mat(1, 2; 3, 4) $
+$ .mat(..#range(1, 5).chunks(2)) $
 $ lim_x =
-    op("lim", limits: #true)_x $
+    .op("lim", limits: #true)_x $
 ```
 
 To write a verbatim comma or semicolon in a math call, escape it with a

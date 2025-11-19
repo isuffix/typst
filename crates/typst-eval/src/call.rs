@@ -799,9 +799,9 @@ mod tests {
         let s = &scopes;
 
         // Basic math identifier differences.
-        test(s, "$ x f(z) $", &[]); // single letters not captured.
+        test(s, "$ x .f(z) $", &[]); // single letters not captured.
         test(s, "$ #x #f(z) $", &["f", "x", "z"]);
-        test(s, "$ foo f(bar) $", &["bar", "foo"]);
+        test(s, "$ foo .f(bar) $", &["bar", "foo"]);
         test(s, "$ #foo[#$bar$] $", &["bar", "foo"]);
         test(s, "$ #let foo = x; foo $", &["x"]);
 
@@ -810,15 +810,15 @@ mod tests {
         test(s, "$ #x-bar #x_bar $", &["x-bar", "x_bar"]);
 
         // Named-params.
-        test(s, "$ foo(bar: y) $", &["foo"]);
-        test(s, "$ foo(x-y: 1, bar-z: 2) $", &["foo"]);
+        test(s, "$ .foo(bar: y) $", &["foo"]);
+        test(s, "$ .foo(x-y: 1, bar-z: 2) $", &["foo"]);
 
         // Field access in math.
         test(s, "$ foo.bar $", &["foo"]);
         test(s, "$ foo.x $", &["foo"]);
         test(s, "$ x.foo $", &["foo"]);
         test(s, "$ foo . bar $", &["bar", "foo"]);
-        test(s, "$ foo.x.y.bar(z) $", &["foo"]);
+        test(s, "$ .foo.x.y.bar(z) $", &["foo"]);
         test(s, "$ foo.x-bar $", &["bar", "foo"]);
         test(s, "$ foo.x_bar $", &["bar", "foo"]);
         test(s, "$ #x_bar.x-bar $", &["x_bar"]);

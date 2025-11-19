@@ -10,7 +10,7 @@ use crate::text::TextElem;
 /// # Example
 /// ```example
 /// $ tan x = (sin x)/(cos x) $
-/// $ op("custom",
+/// $ .op("custom",
 ///      limits: #true)_(n->oo) n $
 /// ```
 ///

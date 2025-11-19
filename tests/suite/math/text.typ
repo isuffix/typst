@@ -6,7 +6,7 @@ $ よ and 🏳️‍🌈 $
 
 --- math-text-color paged ---
 // Test text properties.
-$text(#red, "time"^2) + sqrt("place")$
+$.text(#red, "time"^2) + .sqrt("place")$
 
 --- math-text-single-grapheme-cluster paged ---
 // Test that single graph clusters are considered a single character in math.
@@ -37,9 +37,9 @@ $ "hi ∅ hey" $
 $ sum_(i in NN) 1 + i $
 
 --- math-font-features-switch paged ---
-#let scr(it) = text(stylistic-set: 1, $cal(it)$)
-$cal(P)_i != scr(P)_i$, $cal(bold(I))_l != bold(scr(I))_l$
-$ product.co_(B in scr(B))^(B in scr(bold(B))) cal(B)(X) $
+#let scr(it) = text(stylistic-set: 1, $.cal(it)$)
+$.cal(P)_i != .scr(P)_i$, $.cal(.bold(I))_l != .bold(.scr(I))_l$
+$ product.co_(B in .scr(B))^(B in .scr(.bold(B))) .cal(B)(X) $
 
 --- math-font-covers paged ---
 #show math.equation: set text(
@@ -50,7 +50,7 @@ $ product.co_(B in scr(B))^(B in scr(bold(B))) cal(B)(X) $
   ),
   stylistic-set: 1,
 )
-$ cal(P)_i (X) * cal(C)_1 $
+$ .cal(P)_i (X) * .cal(C)_1 $
 
 --- math-font-warning paged ---
 #show math.equation: set text(font: "Libertinus Serif")
@@ -68,7 +68,7 @@ $ brace.stroked.l -1 brace.stroked.r $
 // Test that math class is preserved even when the result is a tofu.
 #show math.equation: set text(font: "Fira Math", fallback: false)
 $ brace.stroked.l -1 brace.stroked.r $
-$ lr(brace.stroked.l -1 brace.stroked.r) $
+$ .lr(brace.stroked.l -1 brace.stroked.r) $
 
 --- math-optical-size-nested-scripts paged ---
 // Test transition from script to scriptscript.
@@ -89,7 +89,7 @@ $ y^tprime_3 + g^(prime 2) $
 
 --- math-optical-size-prime-large-operator paged ---
 // Test prime superscript on large symbol
-$ scripts(sum_(k in NN))^prime 1/k^2 $
+$ .scripts(sum_(k in NN))^prime 1/k^2 $
 $sum_(k in NN)^prime 1/k^2$
 
 --- math-optical-size-frac-script-script paged ---

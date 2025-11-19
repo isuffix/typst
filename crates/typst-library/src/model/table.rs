@@ -74,7 +74,7 @@ use crate::visualize::{Paint, Stroke};
 ///     $d$: inner radius
 ///   ],
 ///   image("tetrahedron.svg"),
-///   $ sqrt(2) / 12 a^3 $,
+///   $ .sqrt(2) / 12 a^3 $,
 ///   [$a$: edge length]
 /// )
 /// ```

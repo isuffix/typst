@@ -33,21 +33,21 @@ $
 // Test primes always attaching as scripts
 $ x' $
 $ x^' $
-$ attach(x, t: ') $
+$ .attach(x, t: ') $
 $ <' $
-$ attach(<, br: ') $
-$ op(<, limits: #true)' $
-$ limits(<)' $
+$ .attach(<, br: ') $
+$ .op(<, limits: #true)' $
+$ .limits(<)' $
 
 --- math-primes-limits paged ---
 // Test forcefully attaching primes as limits
-$ attach(<, t: ') $
+$ .attach(<, t: ') $
 $ <^' $
-$ attach(<, b: ') $
+$ .attach(<, b: ') $
 $ <_' $
 
-$ limits(x)^' $
-$ attach(limits(x), t: ') $
+$ .limits(x)^' $
+$ .attach(.limits(x), t: ') $
 
 --- math-primes-after-code-expr paged ---
 // Test prime symbols after code mode.
@@ -63,8 +63,8 @@ $
 --- math-primes-with-superscript paged ---
 // Test prime symbols don't raise the superscript position
 $
-  sqrt(f)/f
-  sqrt(f^2)/f^2
-  sqrt(f'^2)/f'^2
-  sqrt(f''_n^2)/f''^2_n
+  .sqrt(f)/f
+  .sqrt(f^2)/f^2
+  .sqrt(f'^2)/f'^2
+  .sqrt(f''_n^2)/f''^2_n
 $

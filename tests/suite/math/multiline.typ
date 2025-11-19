@@ -19,7 +19,7 @@ $ a + b &= 2 + 3 &= 5 \
 
 --- math-align-cases paged ---
 // Test in case distinction.
-$ f := cases(
+$ f := .cases(
   1 + 2 &"iff" &x,
   3     &"if"  &y,
 ) $

@@ -11,8 +11,8 @@ use crate::visualize::Stroke;
 /// ```example
 /// >>> #set page(width: 140pt)
 /// Here, we can simplify:
-/// $ (a dot b dot cancel(x)) /
-///     cancel(x) $
+/// $ (a dot b dot .cancel(x)) /
+///     .cancel(x) $
 /// ```
 #[elem(Mathy)]
 pub struct CancelElem {
@@ -26,8 +26,8 @@ pub struct CancelElem {
     ///
     /// ```example
     /// >>> #set page(width: 140pt)
-    /// $ a + cancel(x, length: #200%)
-    ///     - cancel(x, length: #200%) $
+    /// $ a + .cancel(x, length: #200%)
+    ///     - .cancel(x, length: #200%) $
     /// ```
     #[default(Rel::new(Ratio::one(), Em::new(0.3).into()))]
     pub length: Rel<Length>,
@@ -38,8 +38,8 @@ pub struct CancelElem {
     ///
     /// ```example
     /// >>> #set page(width: 140pt)
-    /// $ (a cancel((b + c), inverted: #true)) /
-    ///     cancel(b + c, inverted: #true) $
+    /// $ (a .cancel((b + c), inverted: #true)) /
+    ///     .cancel(b + c, inverted: #true) $
     /// ```
     #[default(false)]
     pub inverted: bool,
@@ -49,7 +49,7 @@ pub struct CancelElem {
     ///
     /// ```example
     /// >>> #set page(width: 140pt)
-    /// $ cancel(Pi, cross: #true) $
+    /// $ .cancel(Pi, cross: #true) $
     /// ```
     #[default(false)]
     pub cross: bool,
@@ -66,12 +66,12 @@ pub struct CancelElem {
     ///
     /// ```example
     /// >>> #set page(width: 140pt)
-    /// $ cancel(Pi)
-    ///   cancel(Pi, angle: #0deg)
-    ///   cancel(Pi, angle: #45deg)
-    ///   cancel(Pi, angle: #90deg)
-    ///   cancel(1/(1+x), angle: #(a => a + 45deg))
-    ///   cancel(1/(1+x), angle: #(a => a + 90deg)) $
+    /// $ .cancel(Pi)
+    ///   .cancel(Pi, angle: #0deg)
+    ///   .cancel(Pi, angle: #45deg)
+    ///   .cancel(Pi, angle: #90deg)
+    ///   .cancel(1/(1+x), angle: #(a => a + 45deg))
+    ///   .cancel(1/(1+x), angle: #(a => a + 90deg)) $
     /// ```
     pub angle: Smart<CancelAngle>,
 
@@ -79,7 +79,7 @@ pub struct CancelElem {
     ///
     /// ```example
     /// >>> #set page(width: 140pt)
-    /// $ cancel(
+    /// $ .cancel(
     ///   sum x,
     ///   stroke: #(
     ///     paint: red,

@@ -570,7 +570,7 @@ Since variables in math mode do not need to be prepended with a `#` (or a `\`
 like in LaTeX), you can also call functions without these special characters:
 
 ```example
-$ f(x, y) := cases(
+$ f(x, y) := .cases(
   1 "if" (x dot y)/2 <= 0,
   2 "if" x "is even",
   3 "if" x in NN,
@@ -586,7 +586,7 @@ values instead, prefix them with a `#`:
 ```example
 $ (a + b)^2
   = a^2
-  + text(fill: #maroon, 2 a b)
+  + .text(fill: #maroon, 2 a b)
   + b^2 $
 ```
 
@@ -609,7 +609,7 @@ most common use for this is the [`mat` function]($math.mat) that creates
 matrices:
 
 ```example
-$ mat(
+$ .mat(
   1, 2, ..., 10;
   2, 2, ..., 10;
   dots.v, dots.v, dots.down, dots.v;

@@ -21,12 +21,12 @@ $ lambda x .x(x x) $
 
 --- math-call-unclosed-func paged ---
 #let func(x) = x
-// Error: 6-7 unclosed delimiter
-$func(a$
+// Error: 7-8 unclosed delimiter
+$.func(a$
 
 --- math-call-unclosed-non-func paged ---
-// Error: 5-6 unclosed delimiter
-$sin(x$
+// Error: 6-7 unclosed delimiter
+$.sin(x$
 
 --- math-call-named-args paged ---
 #let func1(my: none) = my
@@ -34,95 +34,95 @@ $sin(x$
 #let func3(my-body: none) = my-body
 #let func4(_my-body: none) = _my-body
 #let func5(m: none) = m
-$ func1(my: a) $
-$ func2(_my: a) $
-$ func3(my-body: a) $
-$ func4(_my-body: a) $
-$ func5(m: a) $
-$ func5(m: sigma : f) $
-$ func5(m: sigma:pi) $
+$ .func1(my: a) $
+$ .func2(_my: a) $
+$ .func3(my-body: a) $
+$ .func4(_my-body: a) $
+$ .func5(m: a) $
+$ .func5(m: sigma : f) $
+$ .func5(m: sigma:pi) $
 
 --- math-call-named-args-no-expr paged ---
 #let func(m: none) = m
-// Error: 10 expected expression
-$ func(m: ) $
+// Error: 11 expected expression
+$ .func(m: ) $
 
 --- math-call-named-args-duplicate paged ---
 #let func(my: none) = my
-// Error: 15-17 duplicate argument: my
-$ func(my: a, my: b) $
+// Error: 16-18 duplicate argument: my
+$ .func(my: a, my: b) $
 
 --- math-call-named-args-shorthand-clash-1 paged ---
 #let func(m: none) = m
-// Error: 18-21 unexpected argument
-$func(m: =) func(m:=)$
+// Error: 20-23 unexpected argument
+$.func(m: =) .func(m:=)$
 
 --- math-call-named-args-shorthand-clash-2 paged ---
 #let func(m: none) = m
-// Error: 41-45 unexpected argument
-$func(m::) func(m: :=) func(m:: =) func(m::=)$
+// Error: 45-49 unexpected argument
+$.func(m::) .func(m: :=) .func(m:: =) .func(m::=)$
 
 --- math-call-named-single-underscore paged ---
 #let func(x) = x
-// Error: 8-9 expected identifier, found underscore
-$ func(_: a) $
+// Error: 9-10 expected identifier, found underscore
+$ .func(_: a) $
 
 --- math-call-named-single-char-error paged ---
 #let func(m: none) = m
-// Error: 8-13 unexpected argument
-$ func(m : a) $
+// Error: 9-14 unexpected argument
+$ .func(m : a) $
 
 --- math-call-named-args-repr paged ---
 #let args(..body) = body
 #let check(it, r) = test-repr(it.body.text, r)
-#check($args(_a: a)$, "arguments(_a: [a])")
-#check($args(_a-b: a)$, "arguments(_a-b: [a])")
-#check($args(a-b: a)$, "arguments(a-b: [a])")
-#check($args(a-b-c: a)$, "arguments(a-b-c: [a])")
-#check($args(a--c: a)$, "arguments(a--c: [a])")
-#check($args(a: a-b)$, "arguments(a: sequence([a], [−], [b]))")
-#check($args(a-b: a-b)$, "arguments(a-b: sequence([a], [−], [b]))")
-#check($args(a-b)$, "arguments(sequence([a], [−], [b]))")
+#check($.args(_a: a)$, "arguments(_a: [a])")
+#check($.args(_a-b: a)$, "arguments(_a-b: [a])")
+#check($.args(a-b: a)$, "arguments(a-b: [a])")
+#check($.args(a-b-c: a)$, "arguments(a-b-c: [a])")
+#check($.args(a--c: a)$, "arguments(a--c: [a])")
+#check($.args(a: a-b)$, "arguments(a: sequence([a], [−], [b]))")
+#check($.args(a-b: a-b)$, "arguments(a-b: sequence([a], [−], [b]))")
+#check($.args(a-b)$, "arguments(sequence([a], [−], [b]))")
 
 --- math-call-spread-content-error paged ---
 #let args(..body) = body
-// Error: 7-16 cannot spread content
-$args(..(a + b))$
+// Error: 8-17 cannot spread content
+$.args(..(a + b))$
 
 --- math-call-spread-multiple-exprs paged ---
 #let args(..body) = body
-// Error: 7-14 cannot spread content
-$args(..a + b)$
+// Error: 8-15 cannot spread content
+$.args(..a + b)$
 
 --- math-call-spread-unexpected-dots paged ---
 #let args(..body) = body
-// Error: 8-10 unexpected dots
-$args(#..range(1, 5).chunks(2))$
+// Error: 9-11 unexpected dots
+$.args(#..range(1, 5).chunks(2))$
 
 --- math-call-spread-unexpected-binary paged ---
 // Test spread operators followed by binary math operators with and without
 // right operands. These errors aren't great, but they can be silenced with a
 // space and no one would actually write this.
 $
-  // Error: 9-10 unexpected slash
-  // Error: 19-20 unexpected hat
-  // Error: 29-30 unexpected underscore
-  vec(../.) vec(..^.) vec(.._.)
-  // Error: 9-10 unexpected slash
-  // Error: 19-20 unexpected hat
-  // Error: 29-30 unexpected underscore
-  vec(../)  vec(..^)  vec(.._)
+  // Error: 10-11 unexpected slash
+  // Error: 21-22 unexpected hat
+  // Error: 32-33 unexpected underscore
+  .vec(../.) .vec(..^.) .vec(.._.)
+  // Error: 10-11 unexpected slash
+  // Error: 21-22 unexpected hat
+  // Error: 32-33 unexpected underscore
+  .vec(../)  .vec(..^)  .vec(.._)
 $
 
 --- math-call-spread-shorthand-clash paged ---
 #let func(body) = body
-$func(...)$
+$.func(...)$
 
 --- math-call-spread-empty paged ---
 // Test that a spread operator followed by nothing generates two dots.
 #let args(..body) = body
-#test-repr($args(..)$.body.text, "arguments(sequence([.], [.]))")
-#test-repr($args(.., ..; .. , ..)$.body.text, "arguments(\n  (sequence([.], [.]), sequence([.], [.])),\n  (sequence([.], [.]), sequence([.], [.])),\n)")
+#test-repr($.args(..)$.body.text, "arguments(sequence([.], [.]))")
+#test-repr($.args(.., ..; .. , ..)$.body.text, "arguments(\n  (sequence([.], [.]), sequence([.], [.])),\n  (sequence([.], [.]), sequence([.], [.])),\n)")
 
 --- math-call-named-spread-override paged ---
 // Test named argument overriding with the spread operator.
@@ -130,50 +130,50 @@ $func(...)$
 #let func(a: 1, b: 1) = (a: a, b: b)
 #let dict = (a: 2, b: 2)
 #let args = arguments(a: 3, b: 3)
-#check($func()$, (a: 1, b: 1))
-#check($func(..dict, ..args)$, (a: 3, b: 3))
-#check($func(..args, ..dict)$, (a: 2, b: 2))
-#check($func(a: #4, ..dict, b: #4)$, (a: 2, b: 4))
-#check($func(a: #4, ..args, b: #4)$, (a: 3, b: 4))
+#check($.func()$, (a: 1, b: 1))
+#check($.func(..dict, ..args)$, (a: 3, b: 3))
+#check($.func(..args, ..dict)$, (a: 2, b: 2))
+#check($.func(a: #4, ..dict, b: #4)$, (a: 2, b: 4))
+#check($.func(a: #4, ..args, b: #4)$, (a: 3, b: 4))
 
 --- math-call-named-spread-duplicate paged ---
 // Test duplicate named args with the spread operator.
 // The error should only happen for manually added args.
 #let func(..) = none
 #let dict = (a: 1)
-// Error: 22-23 duplicate argument: a
-$func(a: #2, ..dict, a: #3)$
+// Error: 23-24 duplicate argument: a
+$.func(a: #2, ..dict, a: #3)$
 
 --- math-call-spread-repr paged ---
 #let args(..body) = body
 #let check(it, r) = test-repr(it.body.text, r)
-#check($args(..#range(0, 4).chunks(2))$, "arguments((0, 1), (2, 3))")
+#check($.args(..#range(0, 4).chunks(2))$, "arguments((0, 1), (2, 3))")
 #check($#args(range(1, 5).chunks(2))$, "arguments(((1, 2), (3, 4)))")
 #check($#args(..range(1, 5).chunks(2))$, "arguments((1, 2), (3, 4))")
-#check($args(#(..range(2, 6).chunks(2)))$, "arguments(((2, 3), (4, 5)))")
+#check($.args(#(..range(2, 6).chunks(2)))$, "arguments(((2, 3), (4, 5)))")
 #let nums = range(0, 4).chunks(2)
-#check($args(..nums)$, "arguments((0, 1), (2, 3))")
-#check($args(..nums;)$, "arguments(((0, 1), (2, 3)))")
-#check($args(..nums, ..nums)$, "arguments((0, 1), (2, 3), (0, 1), (2, 3))")
-#check($args(..nums, 4, 5)$, "arguments((0, 1), (2, 3), [4], [5])")
-#check($args(..nums, ..#range(4, 6))$, "arguments((0, 1), (2, 3), 4, 5)")
-#check($args(..nums, #range(4, 6))$, "arguments((0, 1), (2, 3), (4, 5))")
-#check($args(..nums, 1, 2; 3, 4)$, "arguments(((0, 1), (2, 3), [1], [2]), ([3], [4]))")
-#check($args(1, 2; ..nums)$, "arguments(([1], [2]), ((0, 1), (2, 3)))")
-#check($args(1, 2; 3, 4)$, "arguments(([1], [2]), ([3], [4]))")
-#check($args(1, 2; 3, 4; ..#range(5, 7))$, "arguments(([1], [2]), ([3], [4]), (5, 6))")
-#check($args(1, 2; 3, 4, ..#range(5, 7))$, "arguments(([1], [2]), ([3], [4], 5, 6))")
-#check($args(1, 2; 3, 4, ..#range(5, 7);)$, "arguments(([1], [2]), ([3], [4], 5, 6))")
-#check($args(1, 2; 3, 4, ..#range(5, 7),)$, "arguments(([1], [2]), ([3], [4], 5, 6))")
+#check($.args(..nums)$, "arguments((0, 1), (2, 3))")
+#check($.args(..nums;)$, "arguments(((0, 1), (2, 3)))")
+#check($.args(..nums, ..nums)$, "arguments((0, 1), (2, 3), (0, 1), (2, 3))")
+#check($.args(..nums, 4, 5)$, "arguments((0, 1), (2, 3), [4], [5])")
+#check($.args(..nums, ..#range(4, 6))$, "arguments((0, 1), (2, 3), 4, 5)")
+#check($.args(..nums, #range(4, 6))$, "arguments((0, 1), (2, 3), (4, 5))")
+#check($.args(..nums, 1, 2; 3, 4)$, "arguments(((0, 1), (2, 3), [1], [2]), ([3], [4]))")
+#check($.args(1, 2; ..nums)$, "arguments(([1], [2]), ((0, 1), (2, 3)))")
+#check($.args(1, 2; 3, 4)$, "arguments(([1], [2]), ([3], [4]))")
+#check($.args(1, 2; 3, 4; ..#range(5, 7))$, "arguments(([1], [2]), ([3], [4]), (5, 6))")
+#check($.args(1, 2; 3, 4, ..#range(5, 7))$, "arguments(([1], [2]), ([3], [4], 5, 6))")
+#check($.args(1, 2; 3, 4, ..#range(5, 7);)$, "arguments(([1], [2]), ([3], [4], 5, 6))")
+#check($.args(1, 2; 3, 4, ..#range(5, 7),)$, "arguments(([1], [2]), ([3], [4], 5, 6))")
 
 --- math-call-repr paged ---
 #let args(..body) = body
 #let check(it, r) = test-repr(it.body.text, r)
-#check($args(a)$, "arguments([a])")
-#check($args(a,)$, "arguments([a])")
-#check($args(a,b)$, "arguments([a], [b])")
-#check($args(a,b,)$, "arguments([a], [b])")
-#check($args(,a,b,,,)$, "arguments([], [a], [b], [], [])")
+#check($.args(a)$, "arguments([a])")
+#check($.args(a,)$, "arguments([a])")
+#check($.args(a,b)$, "arguments([a], [b])")
+#check($.args(a,b,)$, "arguments([a], [b])")
+#check($.args(,a,b,,,)$, "arguments([], [a], [b], [], [])")
 
 --- math-call-2d-non-func paged ---
 $ pi(a;b) $
@@ -181,56 +181,57 @@ $ pi(a;b) $
 --- math-call-2d-semicolon-priority paged ---
 // If the semicolon directly follows a hash expression, it terminates that
 // instead of indicating 2d arguments.
-$ mat(#"math" ; "wins") $
-$ mat(#"code"; "wins") $
+$ .mat(#"math" ; "wins") $
+$ .mat(#"code"; "wins") $
 
 --- math-call-2d-repr paged ---
 #let args(..body) = body
 #let check(it, r) = test-repr(it.body.text, r)
-#check($args(a;b)$, "arguments(([a],), ([b],))")
-#check($args(a,b;c)$, "arguments(([a], [b]), ([c],))")
-#check($args(a,b;c,d;e,f)$, "arguments(([a], [b]), ([c], [d]), ([e], [f]))")
+#check($.args(a;b)$, "arguments(([a],), ([b],))")
+#check($.args(a,b;c)$, "arguments(([a], [b]), ([c],))")
+#check($.args(a,b;c,d;e,f)$, "arguments(([a], [b]), ([c], [d]), ([e], [f]))")
 
 --- math-call-2d-named-repr paged ---
 #let args(..body) = (body.pos(), body.named())
 #let check(it, r) = test-repr(it.body.text, r)
-#check($args(a: b)$, "((), (a: [b]))")
-#check($args(1, 2; 3, 4)$, "((([1], [2]), ([3], [4])), (:))")
+
+#check($.args(a: b)$, "((), (a: [b]))")
+#check($.args(1, 2; 3, 4)$, "((([1], [2]), ([3], [4])), (:))")
 #let repr1234ab = "((([1], [2]), ([3], [4])), (a: [b]))"
-#check($args(a: b, 1, 2; 3, 4)$, repr1234ab)
-#check($args(1, a: b, 2; 3, 4)$, repr1234ab)
-#check($args(1, 2, a: b; 3, 4)$, repr1234ab)
-#check($args(1, 2; a: b, 3, 4)$, repr1234ab)
-#check($args(1, 2; 3, a: b, 4)$, repr1234ab)
-#check($args(1, 2; 3, 4, a: b)$, repr1234ab)
-#check($args(1, 2; 3, 4; a: b)$, repr1234ab)
-#check($args(a: b, 1, 2, 3, c: d)$, "(([1], [2], [3]), (a: [b], c: [d]))")
-#check($args(1, 2, 3; a: b)$, "((([1], [2], [3]),), (a: [b]))")
-#check($args(a-b: a,, e:f;; d)$, "((([],), ([],), ([d],)), (a-b: [a], e: [f]))")
-#check($args(a: b, ..#range(0, 4))$, "((0, 1, 2, 3), (a: [b]))")
+#check($.args(a: b, 1, 2; 3, 4)$, repr1234ab)
+#check($.args(1, a: b, 2; 3, 4)$, repr1234ab)
+#check($.args(1, 2, a: b; 3, 4)$, repr1234ab)
+#check($.args(1, 2; a: b, 3, 4)$, repr1234ab)
+#check($.args(1, 2; 3, a: b, 4)$, repr1234ab)
+#check($.args(1, 2; 3, 4, a: b)$, repr1234ab)
+#check($.args(1, 2; 3, 4, a: b)$, repr1234ab)
+#check($.args(a: b, 1, 2, 3, c: d)$, "(([1], [2], [3]), (a: [b], c: [d]))")
+#check($.args(1, 2, 3; a: b)$, "((([1], [2], [3]),), (a: [b]))")
+#check($.args(a-b: a,, e:f;; d)$, "((([],), ([],), ([d],)), (a-b: [a], e: [f]))")
+#check($.args(a: b, ..#range(0, 4))$, "((0, 1, 2, 3), (a: [b]))")
 
 --- math-call-2d-escape-repr paged ---
 #let args(..body) = body
 #let check(it, r) = test-repr(it.body.text, r)
-#check($args(a\;b)$, "arguments(sequence([a], [;], [b]))")
-#check($args(a\,b;c)$, "arguments((sequence([a], [,], [b]),), ([c],))")
-#check($args(b\;c\,d;e)$, "arguments((sequence([b], [;], [c], [,], [d]),), ([e],))")
-#check($args(a\: b)$, "arguments(sequence([a], [:], [ ], [b]))")
-#check($args(a : b)$, "arguments(sequence([a], [ ], [:], [ ], [b]))")
-#check($args(\..a)$, "arguments(sequence([.], [.], [a]))")
-#check($args(.. a)$, "arguments(sequence([.], [.], [ ], [a]))")
-#check($args(a..b)$, "arguments(sequence([a], [.], [.], [b]))")
+#check($.args(a\;b)$, "arguments(sequence([a], [;], [b]))")
+#check($.args(a\,b;c)$, "arguments((sequence([a], [,], [b]),), ([c],))")
+#check($.args(b\;c\,d;e)$, "arguments((sequence([b], [;], [c], [,], [d]),), ([e],))")
+#check($.args(a\: b)$, "arguments(sequence([a], [:], [ ], [b]))")
+#check($.args(a : b)$, "arguments(sequence([a], [ ], [:], [ ], [b]))")
+#check($.args(\..a)$, "arguments(sequence([.], [.], [a]))")
+#check($.args(.. a)$, "arguments(sequence([.], [.], [ ], [a]))")
+#check($.args(a..b)$, "arguments(sequence([a], [.], [.], [b]))")
 
 --- math-call-2d-repr-structure paged ---
 #let args(..body) = body
 #let check(it, r) = test-repr(it.body.text, r)
-#check($args( a; b; )$, "arguments(([a],), ([b],))")
-#check($args(a;  ; c)$, "arguments(([a],), ([],), ([c],))")
-#check($args(a b,/**/; b)$, "arguments((sequence([a], [ ], [b]), []), ([b],))")
-#check($args(a/**/b, ; b)$, "arguments((sequence([a], [b]), []), ([b],))")
-#check($args( ;/**/a/**/b/**/; )$, "arguments(([],), (sequence([a], [b]),))")
-#check($args( ; , ; )$, "arguments(([],), ([], []))")
-#check($args(/**/; // funky whitespace/trivia
+#check($.args( a; b; )$, "arguments(([a],), ([b],))")
+#check($.args(a;  ; c)$, "arguments(([a],), ([],), ([c],))")
+#check($.args(a b,/**/; b)$, "arguments((sequence([a], [ ], [b]), []), ([b],))")
+#check($.args(a/**/b, ; b)$, "arguments((sequence([a], [b]), []), ([b],))")
+#check($.args( ;/**/a/**/b/**/; )$, "arguments(([],), (sequence([a], [b]),))")
+#check($.args( ; , ; )$, "arguments(([],), ([], []))")
+#check($.args(/**/; // funky whitespace/trivia
     ,   /**/  ;/**/)$, "arguments(([],), ([], []))")
 
 --- math-call-empty-args-non-func paged ---
@@ -242,13 +243,12 @@ $ sin( ,/**/x/**/, , /**/y, ,/**/, ) $
 --- math-call-empty-args-repr paged ---
 #let args(..body) = body
 #let check(it, r) = test-repr(it.body.text, r)
-#check($args(,x,,y,,)$, "arguments([], [x], [], [y], [])")
+#check($.args(,x,,y,,)$, "arguments([], [x], [], [y], [])")
 // with whitespace/trivia:
-#check($args( ,/**/x/**/, , /**/y, ,/**/, )$, "arguments([], [x], [], [y], [], [])")
+#check($.args( ,/**/x/**/, , /**/y, ,/**/, )$, "arguments([], [x], [], [y], [], [])")
 
 --- math-call-value-non-func paged ---
 $ sin(1) $
-// Error: 8-9 expected content, found integer
 $ sin(#1) $
 
 --- math-call-pass-to-box paged ---
@@ -262,9 +262,9 @@ $ sin(#1) $
 #let eq(body) = math.equation(body)
 $
      x y   &&quad     x (y z)   &quad     x y^z  \
-  id(x y)  &&quad  id(x (y z))  &quad  id(x y^z) \
-  eq(x y)  &&quad  eq(x (y z))  &quad  eq(x y^z) \
-  bx(x y)  &&quad  bx(x (y z))  &quad  bx(x y^z) \
+  .id(x y)  &&quad  .id(x (y z))  &quad  .id(x y^z) \
+  .eq(x y)  &&quad  .eq(x (y z))  &quad  .eq(x y^z) \
+  .bx(x y)  &&quad  .bx(x (y z))  &quad  .bx(x y^z) \
 $
 
 --- math-call-unknown-var-hint paged ---
@@ -279,41 +279,40 @@ $ phi(x, y) $
 $ phi(1,2,,3,) $
 
 --- math-call-symbol-named-argument paged ---
-// Error: 10-18 unexpected argument: alpha
 $ phi(x, alpha: y) $
 
 --- issue-3774-math-call-empty-2d-args paged ---
-$ mat(;,) $
+$ .mat(;,) $
 // Add some whitespace/trivia:
-$ mat(; ,) $
-$ mat(;/**/,) $
-$ mat(;
+$ .mat(; ,) $
+$ .mat(;/**/,) $
+$ .mat(;
 ,) $
-$ mat(;// line comment
+$ .mat(;// line comment
 ,) $
-$ mat(
+$ .mat(
   1, , ;
    ,1, ;
    , ,1;
 ) $
 
 --- issue-2885-math-var-only-in-global paged ---
-// Error: 7-10 unknown variable: rgb
-// Hint: 7-10 `rgb` is not available directly in math, try adding a hash before it: `#rgb`
-$text(rgb(0, 0, 0), "foo")$
+// Error: 9-12 unknown variable: rgb
+// Hint: 9-12 `rgb` is not available directly in math, try adding a hash before it: `#rgb`
+$.text(.rgb(0, 0, 0), "foo")$
 
 --- math-call-error paged ---
 // Test the span of errors when calling a function.
 #let func(a, b, c) = {}
-// Error: 3-13 missing argument: c
-$ func(a, b) $
+// Error: 3-14 missing argument: c
+$ .func(a, b) $
 
 --- math-call-error-inside-func paged ---
 // Test whether errors inside function calls produce further errors.
 #let int = int
-$ int(
-  // Error: 3-8 missing argument: value
-  int()
+$ .int(
+  // Error: 3-9 missing argument: value
+  .int()
 ) $
 
 --- math-func-literal-basic paged ---

@@ -26,7 +26,7 @@ const DEFAULT_COL_GAP: Em = Em::new(0.5);
 ///
 /// # Example
 /// ```example
-/// $ vec(a, b, c) dot vec(1, 2, 3)
+/// $ .vec(a, b, c) dot .vec(1, 2, 3)
 ///     = a + 2b + 3c $
 /// ```
 #[elem(title = "Vector", Mathy)]
@@ -39,7 +39,7 @@ pub struct VecElem {
     ///
     /// ```example
     /// #set math.vec(delim: "[")
-    /// $ vec(1, 2) $
+    /// $ .vec(1, 2) $
     /// ```
     #[default(DelimiterPair::PAREN)]
     pub delim: DelimiterPair,
@@ -48,7 +48,7 @@ pub struct VecElem {
     ///
     /// ```example
     /// #set math.vec(align: right)
-    /// $ vec(-1, 1, -1) $
+    /// $ .vec(-1, 1, -1) $
     /// ```
     #[default(HAlignment::Center)]
     pub align: HAlignment,
@@ -57,7 +57,7 @@ pub struct VecElem {
     ///
     /// ```example
     /// #set math.vec(gap: 1em)
-    /// $ vec(1, 2) $
+    /// $ .vec(1, 2) $
     /// ```
     #[default(DEFAULT_ROW_GAP.into())]
     pub gap: Rel<Length>,
@@ -81,7 +81,7 @@ pub struct VecElem {
 ///
 /// # Example
 /// ```example
-/// $ mat(
+/// $ .mat(
 ///   1, 2, ..., 10;
 ///   2, 2, ..., 10;
 ///   dots.v, dots.v, dots.down, dots.v;
@@ -98,7 +98,7 @@ pub struct MatElem {
     ///
     /// ```example
     /// #set math.mat(delim: "[")
-    /// $ mat(1, 2; 3, 4) $
+    /// $ .mat(1, 2; 3, 4) $
     /// ```
     #[default(DelimiterPair::PAREN)]
     pub delim: DelimiterPair,
@@ -107,7 +107,7 @@ pub struct MatElem {
     ///
     /// ```example
     /// #set math.mat(align: right)
-    /// $ mat(-1, 1, 1; 1, -1, 1; 1, 1, -1) $
+    /// $ .mat(-1, 1, 1; 1, -1, 1; 1, 1, -1) $
     /// ```
     #[default(HAlignment::Center)]
     pub align: HAlignment,
@@ -134,13 +134,13 @@ pub struct MatElem {
     ///     takes on a thickness of 0.05 em and square line caps.
     ///
     /// ```example:"Basic usage"
-    /// $ mat(1, 0, 1; 0, 1, 2; augment: #2) $
+    /// $ .mat(1, 0, 1; 0, 1, 2; augment: #2) $
     /// // Equivalent to:
-    /// $ mat(1, 0, 1; 0, 1, 2; augment: #(-1)) $
+    /// $ .mat(1, 0, 1; 0, 1, 2; augment: #(-1)) $
     /// ```
     ///
     /// ```example:"Customizing the augmentation line"
-    /// $ mat(0, 0, 0; 1, 1, 1; augment: #(hline: 1, stroke: 2pt + green)) $
+    /// $ .mat(0, 0, 0; 1, 1, 1; augment: #(hline: 1, stroke: 2pt + green)) $
     /// ```
     #[fold]
     pub augment: Option<Augment>,
@@ -151,7 +151,7 @@ pub struct MatElem {
     ///
     /// ```example
     /// #set math.mat(gap: 1em)
-    /// $ mat(1, 2; 3, 4) $
+    /// $ .mat(1, 2; 3, 4) $
     /// ```
     #[external]
     pub gap: Rel<Length>,
@@ -160,7 +160,7 @@ pub struct MatElem {
     ///
     /// ```example
     /// #set math.mat(row-gap: 1em)
-    /// $ mat(1, 2; 3, 4) $
+    /// $ .mat(1, 2; 3, 4) $
     /// ```
     #[parse(
         let gap = args.named("gap")?;
@@ -173,7 +173,7 @@ pub struct MatElem {
     ///
     /// ```example
     /// #set math.mat(column-gap: 1em)
-    /// $ mat(1, 2; 3, 4) $
+    /// $ .mat(1, 2; 3, 4) $
     /// ```
     #[parse(args.named("column-gap")?.or(gap))]
     #[default(DEFAULT_COL_GAP.into())]
@@ -220,7 +220,7 @@ pub struct MatElem {
 ///
 /// # Example
 /// ```example
-/// $ f(x, y) := cases(
+/// $ f(x, y) := .cases(
 ///   1 "if" (x dot y)/2 <= 0,
 ///   2 "if" x "is even",
 ///   3 "if" x in NN,
@@ -237,7 +237,7 @@ pub struct CasesElem {
     ///
     /// ```example
     /// #set math.cases(delim: "[")
-    /// $ x = cases(1, 2) $
+    /// $ x = .cases(1, 2) $
     /// ```
     #[default(DelimiterPair::BRACE)]
     pub delim: DelimiterPair,
@@ -246,7 +246,7 @@ pub struct CasesElem {
     ///
     /// ```example
     /// #set math.cases(reverse: true)
-    /// $ cases(1, 2) = x $
+    /// $ .cases(1, 2) = x $
     /// ```
     #[default(false)]
     pub reverse: bool,
@@ -255,7 +255,7 @@ pub struct CasesElem {
     ///
     /// ```example
     /// #set math.cases(gap: 1em)
-    /// $ x = cases(1, 2) $
+    /// $ x = .cases(1, 2) $
     /// ```
     #[default(DEFAULT_ROW_GAP.into())]
     pub gap: Rel<Length>,

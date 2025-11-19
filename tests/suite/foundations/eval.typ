@@ -49,9 +49,9 @@ _Tiger!_
 
 --- issue-2055-math-eval paged ---
 // Evaluating a math expr should renders the same as an equation
-#eval(mode: "math", "f(a) = cases(a + b\, space space x >= 3,a + b\, space space x = 5)")
+#eval(mode: "math", "f(a) = .cases(a + b\, space space x >= 3,a + b\, space space x = 5)")
 
-$f(a) = cases(a + b\, space space x >= 3,a + b\, space space x = 5)$
+$f(a) = .cases(a + b\, space space x >= 3,a + b\, space space x = 5)$
 
 --- issue-6067-eval-warnings paged ---
 // Test that eval shows warnings from the executed code.

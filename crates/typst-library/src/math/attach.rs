@@ -5,7 +5,7 @@ use crate::math::{EquationElem, Mathy};
 /// A base with optional attachments.
 ///
 /// ```example
-/// $ attach(
+/// $ .attach(
 ///   Pi, t: alpha, b: beta,
 ///   tl: 1, tr: 2+3, bl: 4+5, br: 6,
 /// ) $
@@ -101,7 +101,7 @@ pub struct PrimesElem {
 /// Forces a base to display attachments as scripts.
 ///
 /// ```example
-/// $ scripts(sum)_1^2 != sum_1^2 $
+/// $ .scripts(sum)_1^2 != sum_1^2 $
 /// ```
 #[elem(Mathy)]
 pub struct ScriptsElem {
@@ -113,7 +113,7 @@ pub struct ScriptsElem {
 /// Forces a base to display attachments as limits.
 ///
 /// ```example
-/// $ limits(A)_1^2 != A_1^2 $
+/// $ .limits(A)_1^2 != A_1^2 $
 /// ```
 #[elem(Mathy)]
 pub struct LimitsElem {
@@ -139,10 +139,10 @@ pub struct LimitsElem {
 /// regard.
 ///
 /// ```example
-/// $ H stretch(=)^"define" U + p V $
-/// $ f : X stretch(->>, size: #150%)_"surjective" Y $
-/// $ x stretch(harpoons.ltrb, size: #3em) y
-///     stretch(\[, size: #150%) z $
+/// $ H .stretch(=)^"define" U + p V $
+/// $ f : X .stretch(->>, size: #150%)_"surjective" Y $
+/// $ x .stretch(harpoons.ltrb, size: #3em) y
+///     .stretch(\[, size: #150%) z $
 /// ```
 #[elem(Mathy)]
 pub struct StretchElem {

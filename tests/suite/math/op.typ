@@ -18,16 +18,16 @@ $ lim_(n->infinity) 1/n = 0 $
 
 --- math-op-custom paged ---
 // Test custom operator.
-$ op("myop", limits: #false)_(x:=1) x \
-  op("myop", limits: #true)_(x:=1) x $
+$ .op("myop", limits: #false)_(x:=1) x \
+  .op("myop", limits: #true)_(x:=1) x $
 
 --- math-op-styled paged ---
 // Test styled operator.
-$ bold(op("bold", limits: #true))_x y $
+$ .bold(.op("bold", limits: #true))_x y $
 
 --- math-non-math-content paged ---
 // With non-text content
-$ op(#underline[ul]) a $
+$ .op(#underline[ul]) a $
 
 --- math-op-font paged ---
 // Test with different font.
@@ -35,7 +35,7 @@ $ op(#underline[ul]) a $
   text(font: "IBM Plex Sans", weight: "regular", size: 0.8em)[colim],
   limits: true,
 )
-$ colim_(x -> 0) inline(colim_(x -> 0)) $
+$ colim_(x -> 0) .inline(colim_(x -> 0)) $
 
 --- math-op-set-font paged ---
 // Test setting font.

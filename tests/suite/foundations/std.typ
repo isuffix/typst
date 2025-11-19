@@ -28,4 +28,4 @@
 #test(std, 7)
 
 --- std-math paged ---
-$ std.rect(x + y = 5) $
+$ .std.rect(x + y = 5) $
