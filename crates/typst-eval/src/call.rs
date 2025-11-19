@@ -45,45 +45,88 @@ impl Eval for ast::FuncCall<'_> {
                 }
                 FieldCall::Resolved(value) => return Ok(value),
             }
-        } else if let ast::Expr::MathIdentWrapper(wrapper) = callee {
-            match wrapper.inner() {
-                // TODO: Factor out the duplicate code later.
-                MathAccess::FieldAccess(access) => {
-                    let target = access.target();
-                    let field = access.field();
-                    match eval_field_call(target, field, args, span, vm)? {
-                        FieldCall::Normal(callee, args) => {
-                            if vm.inspected == Some(callee_span) {
-                                vm.trace(callee.clone());
-                            }
-                            (callee, args)
-                        }
-                        FieldCall::Resolved(value) => return Ok(value),
-                    }
-                }
-                MathAccess::Ident(ident) => (
-                    super::code::eval_ident(vm, ident, true)?,
-                    args.eval(vm)?.spanned(span),
-                ),
-            }
         } else {
             // Function call order: we evaluate the callee before the arguments.
             (callee.eval(vm)?, args.eval(vm)?.spanned(span))
         };
 
+        let func = callee_value.clone().cast::<Func>()
+            .map_err(|err| hint_if_shadowed_std(vm, callee, err))
+            .at(callee_span)?;
+
+        let point = || Tracepoint::Call(func.name().map(Into::into));
+        let f = || {
+            func.call(&mut vm.engine, vm.context, args_value).trace(
+                vm.world(),
+                point,
+                span,
+            )
+        };
+
+        // Stacker is broken on WASM.
+        #[cfg(target_arch = "wasm32")]
+        return f();
+
+        #[cfg(not(target_arch = "wasm32"))]
+        stacker::maybe_grow(32 * 1024, 2 * 1024 * 1024, f)
+    }
+}
+
+impl Eval for ast::MathCall<'_> {
+    type Output = Value;
+
+    fn eval(self, vm: &mut Vm) -> SourceResult<Self::Output> {
+        // TODO: Factor out the duplicate code later.
+        let span = self.span();
+        let callee = self.callee();
+        let callee_span = callee.span();
+        let args = self.args();
+
+        vm.engine.route.check_call_depth().at(span)?;
+
+        // Try to evaluate as a call to an associated function or field.
+        let (callee_value, args_value) = match callee.inner() {
+            ast::MathAccess::FieldAccess(access) => {
+                let target = access.target();
+                let field = access.field();
+                match eval_field_call(target, field, args, span, vm)? {
+                    FieldCall::Normal(callee, args) => {
+                        if vm.inspected == Some(callee_span) {
+                            vm.trace(callee.clone());
+                        }
+                        (callee, args)
+                    }
+                    FieldCall::Resolved(value) => return Ok(value),
+                }
+            }
+            ast::MathAccess::Ident(ident) => {
+                // Function call order: we evaluate the callee before the arguments.
+                (super::code::eval_ident(vm, ident, true)?, args.eval(vm)?.spanned(span))
+            }
+        };
+
         let func_result = callee_value.clone().cast::<Func>();
 
-        if func_result.is_err() && in_math(callee) {
+        if func_result.is_err() {
+            let trailing_comma = args
+                .to_untyped()
+                .children()
+                .rev()
+                .skip(1)
+                .find(|n| !n.kind().is_trivia())
+                .is_some_and(|n| n.kind() == typst_syntax::SyntaxKind::Comma);
             return wrap_args_in_math(
                 callee_value,
                 callee_span,
                 args_value,
-                args.trailing_comma(),
+                trailing_comma,
             );
         }
 
         let func = func_result
-            .map_err(|err| hint_if_shadowed_std(vm, &self.callee(), err))
+            .map_err(|err| {
+                hint_if_shadowed_std(vm, ast::Expr::MathIdentWrapper(callee), err)
+            })
             .at(callee_span)?;
 
         let point = || Tracepoint::Call(func.name().map(Into::into));
@@ -144,7 +187,7 @@ impl Eval for ast::Args<'_> {
                             value: Spanned::new(value, span),
                         }));
                     }
-                    Value::Args(args) => items.extend(args.items),
+                    Value::Args(args) => items.extend(args.items), // TODO: Update arg span?
                     v => bail!(spread.span(), "cannot spread {}", v.ty()),
                 },
             }
@@ -153,6 +196,92 @@ impl Eval for ast::Args<'_> {
         // We do *not* use the `self.span()` here because we want the callsite
         // span to be one level higher (the whole function call).
         Ok(Args { span: Span::detached(), items })
+    }
+}
+
+impl Eval for ast::MathArgs<'_> {
+    type Output = Args;
+
+    fn eval(self, vm: &mut Vm) -> SourceResult<Self::Output> {
+        // Math args need to fully separate pos/named to correctly handle
+        // two-dimensional args, for example: `mat(a, delim:"[", b; c, d)`.
+        let mut named = EcoVec::new();
+        let mut pos = EcoVec::new();
+        let mut two_dim_start: Option<usize> = None;
+
+        // Optimize two-dimensional args by using `pos` as the sole container.
+        fn drain_into_array(pos: &mut EcoVec<Arg>, start: usize) {
+            let array = pos[start..].iter().map(|arg| arg.value.v.clone()).collect();
+            pos.truncate(start);
+            pos.push(Arg {
+                span: Span::detached(),
+                name: None,
+                value: Spanned::detached(Value::Array(array)), // TODO: add span?
+            });
+        }
+
+        for ast::MathArg { arg, ends_in_semicolon } in self.items() {
+            let span = arg.span();
+            match arg {
+                ast::Arg::Pos(expr) => {
+                    pos.push(Arg {
+                        span,
+                        name: None,
+                        value: Spanned::new(expr.eval(vm)?, expr.span()),
+                    });
+                }
+                ast::Arg::Named(named_arg) => {
+                    let expr = named_arg.expr();
+                    named.push(Arg {
+                        span,
+                        name: Some(named_arg.name().get().clone().into()),
+                        value: Spanned::new(expr.eval(vm)?, expr.span()),
+                    });
+                }
+                ast::Arg::Spread(spread) => match spread.expr().eval(vm)? {
+                    Value::None => {}
+                    Value::Array(array) => {
+                        pos.extend(array.into_iter().map(|value| Arg {
+                            span,
+                            name: None,
+                            value: Spanned::new(value, span),
+                        }));
+                    }
+                    Value::Dict(dict) => {
+                        named.extend(dict.into_iter().map(|(key, value)| Arg {
+                            span,
+                            name: Some(key),
+                            value: Spanned::new(value, span),
+                        }));
+                    }
+                    Value::Args(args) => {
+                        for arg in args.items {
+                            // TODO: Update arg span?
+                            if arg.name.is_none() {
+                                pos.push(arg);
+                            } else {
+                                named.push(arg);
+                            }
+                        }
+                    }
+                    v => bail!(spread.span(), "cannot spread {}", v.ty()),
+                },
+            }
+            if ends_in_semicolon {
+                let start = two_dim_start.unwrap_or(0);
+                drain_into_array(&mut pos, start);
+                two_dim_start = Some(pos.len());
+            }
+        }
+
+        if let Some(start) = two_dim_start
+            && start != pos.len()
+        {
+            drain_into_array(&mut pos, start);
+        }
+
+        named.extend(pos);
+        Ok(Args { span: Span::detached(), items: named })
     }
 }
 
@@ -327,7 +456,7 @@ enum FieldCall {
 fn eval_field_call(
     target_expr: ast::Expr,
     field: Ident,
-    args: ast::Args,
+    args: impl Eval<Output = Args>,
     span: Span,
     vm: &mut Vm,
 ) -> SourceResult<FieldCall> {
@@ -418,15 +547,6 @@ fn missing_field_call_error(target: Value, field: Ident) -> SourceDiagnostic {
     }
 
     error
-}
-
-/// Check if the expression is in a math context.
-fn in_math(expr: ast::Expr) -> bool {
-    match expr {
-        ast::Expr::MathIdentWrapper(_) => true,
-        ast::Expr::FieldAccess(access) => in_math(access.target()),
-        _ => false,
-    }
 }
 
 /// For non-functions in math, we wrap the arguments in parentheses.

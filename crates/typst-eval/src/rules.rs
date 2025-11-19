@@ -22,7 +22,7 @@ impl Eval for ast::SetRule<'_> {
         let target = target_expr
             .eval(vm)?
             .cast::<Func>()
-            .map_err(|err| hint_if_shadowed_std(vm, &target_expr, err))
+            .map_err(|err| hint_if_shadowed_std(vm, target_expr, err))
             .and_then(|func| {
                 func.element().ok_or_else(|| {
                     "only element functions can be used in set rules".into()
@@ -43,7 +43,7 @@ impl Eval for ast::ShowRule<'_> {
             .map(|sel| {
                 sel.eval(vm)?
                     .cast::<ShowableSelector>()
-                    .map_err(|err| hint_if_shadowed_std(vm, &sel, err))
+                    .map_err(|err| hint_if_shadowed_std(vm, sel, err))
                     .at(sel.span())
             })
             .transpose()?
