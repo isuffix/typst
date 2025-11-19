@@ -65,8 +65,7 @@ pub const STMT: SyntaxSet = syntax_set!(Let, Set, Show, Import, Include, Return)
 /// Syntax kinds that can start a math expression.
 pub const MATH_EXPR: SyntaxSet = syntax_set!(
     Hash,
-    MathIdent,
-    FieldAccess,
+    MathIdentWrapper,
     Dot,
     Comma,
     Semicolon,

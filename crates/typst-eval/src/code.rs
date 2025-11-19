@@ -100,7 +100,7 @@ impl Eval for ast::Expr<'_> {
             Self::Equation(v) => v.eval(vm).map(Value::Content),
             Self::Math(v) => v.eval(vm).map(Value::Content),
             Self::MathText(v) => v.eval(vm).map(Value::Content),
-            Self::MathIdent(v) => v.eval(vm),
+            Self::MathIdentWrapper(v) => super::math::eval_ident_wrapper(vm, v, false),
             Self::MathShorthand(v) => v.eval(vm),
             Self::MathAlignPoint(v) => v.eval(vm).map(Value::Content),
             Self::MathDelimited(v) => v.eval(vm).map(Value::Content),
@@ -147,20 +147,6 @@ impl Eval for ast::Expr<'_> {
         }
 
         Ok(v)
-    }
-}
-
-impl Eval for ast::Ident<'_> {
-    type Output = Value;
-
-    fn eval(self, vm: &mut Vm) -> SourceResult<Self::Output> {
-        let span = self.span();
-        Ok(vm
-            .scopes
-            .get(&self)
-            .at(span)?
-            .read_checked((&mut vm.engine, span))
-            .clone())
     }
 }
 
@@ -310,11 +296,40 @@ impl Eval for ast::Parenthesized<'_> {
     }
 }
 
+impl Eval for ast::Ident<'_> {
+    type Output = Value;
+
+    fn eval(self, vm: &mut Vm) -> SourceResult<Self::Output> {
+        eval_ident(vm, self, false)
+    }
+}
+
+pub(super) fn eval_ident(
+    vm: &mut Vm,
+    ident: ast::Ident,
+    in_math: bool,
+) -> SourceResult<Value> {
+    let span = ident.span();
+    let v = if in_math { vm.scopes.get_in_math(&ident) } else { vm.scopes.get(&ident) };
+    Ok(v.at(span)?.read_checked((&mut vm.engine, span)).clone())
+}
+
+pub(super) fn eval_field_target(vm: &mut Vm, target: ast::Expr) -> SourceResult<Value> {
+    if let ast::Expr::MathIdentWrapper(wrapper) = target
+        && let ast::MathAccess::Ident(ident) = wrapper.inner()
+    {
+        // Leave the `eval_ident_wrapper` path through ast::Expr.
+        eval_ident(vm, ident, true)
+    } else {
+        target.eval(vm)
+    }
+}
+
 impl Eval for ast::FieldAccess<'_> {
     type Output = Value;
 
     fn eval(self, vm: &mut Vm) -> SourceResult<Self::Output> {
-        let value = self.target().eval(vm)?;
+        let value = eval_field_target(vm, self.target())?;
         let field = self.field();
         let field_span = field.span();
 

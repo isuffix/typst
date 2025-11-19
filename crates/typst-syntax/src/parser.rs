@@ -261,7 +261,7 @@ fn math_expr_prec(p: &mut Parser, min_prec: u8, stop_set: SyntaxSet) {
     match p.current() {
         SyntaxKind::Hash => embedded_code_expr(p),
         // The lexer manages creating full FieldAccess nodes if needed.
-        SyntaxKind::MathIdent | SyntaxKind::FieldAccess => {
+        SyntaxKind::MathIdentWrapper => {
             continuable = true;
             p.eat();
             // Parse a function call for an identifier or field access.
@@ -517,16 +517,12 @@ fn math_arg<'s>(p: &mut Parser<'s>, seen: &mut FxHashSet<&'s str>) -> bool {
 
     let mut arg_kind = None;
 
-    if p.at(SyntaxKind::Dot)
-        && let Some(spread) = p.lexer.maybe_math_spread_arg(start)
-    {
+    if let Some(spread) = p.lexer.maybe_math_spread_arg(start) {
         // Parses a spread argument: `..args`.
         arg_kind = Some(SyntaxKind::Spread);
         p.token.node = spread;
         p.eat();
-    } else if p.at_set(syntax_set!(MathText, MathIdent, Underscore))
-        && let Some(named) = p.lexer.maybe_math_named_arg(start)
-    {
+    } else if let Some(named) = p.lexer.maybe_math_named_arg(start) {
         // Parses a named argument: `thickness: #12pt`.
         arg_kind = Some(SyntaxKind::Named);
         p.token.node = named;

@@ -250,8 +250,8 @@ pub enum Expr<'a> {
     Math(Math<'a>),
     /// A lone text fragment in math: `x`, `25`, `3.1415`, `=`, `[`.
     MathText(MathText<'a>),
-    /// An identifier in math: `pi`.
-    MathIdent(MathIdent<'a>),
+    /// A wrapper over identifiers and field accesses in math: `pi`, `pi.alt`.
+    MathIdentWrapper(MathIdentWrapper<'a>),
     /// A shorthand for a unicode codepoint in math: `a <= b`.
     MathShorthand(MathShorthand<'a>),
     /// An alignment point in math: `&`.
@@ -362,7 +362,9 @@ impl<'a> AstNode<'a> for Expr<'a> {
             SyntaxKind::Equation => Some(Self::Equation(Equation(node))),
             SyntaxKind::Math => Some(Self::Math(Math(node))),
             SyntaxKind::MathText => Some(Self::MathText(MathText(node))),
-            SyntaxKind::MathIdent => Some(Self::MathIdent(MathIdent(node))),
+            SyntaxKind::MathIdentWrapper => {
+                Some(Self::MathIdentWrapper(MathIdentWrapper(node)))
+            }
             SyntaxKind::MathShorthand => Some(Self::MathShorthand(MathShorthand(node))),
             SyntaxKind::MathAlignPoint => {
                 Some(Self::MathAlignPoint(MathAlignPoint(node)))
@@ -431,7 +433,7 @@ impl<'a> AstNode<'a> for Expr<'a> {
             Self::Equation(v) => v.to_untyped(),
             Self::Math(v) => v.to_untyped(),
             Self::MathText(v) => v.to_untyped(),
-            Self::MathIdent(v) => v.to_untyped(),
+            Self::MathIdentWrapper(v) => v.to_untyped(),
             Self::MathShorthand(v) => v.to_untyped(),
             Self::MathAlignPoint(v) => v.to_untyped(),
             Self::MathDelimited(v) => v.to_untyped(),
@@ -878,29 +880,41 @@ impl<'a> MathText<'a> {
 }
 
 node! {
-    /// An identifier in math: `pi`.
-    struct MathIdent
+    /// A wrapper over identifiers and field accesses in math: `pi`, `pi.alt`.
+    ///
+    /// Wraps plain identifiers, entire field accesses, and the initial
+    /// identifier of a field access.
+    struct MathIdentWrapper
 }
 
-impl<'a> MathIdent<'a> {
-    /// Get the identifier.
-    pub fn get(self) -> &'a EcoString {
-        self.0.text()
-    }
-
-    /// Get the identifier as a string slice.
-    pub fn as_str(self) -> &'a str {
-        self.get()
+impl<'a> MathIdentWrapper<'a> {
+    /// Get the inner identifier or field access.
+    pub fn inner(self) -> MathAccess<'a> {
+        self.0.try_cast_first().unwrap()
     }
 }
 
-impl Deref for MathIdent<'_> {
-    type Target = str;
+/// A variable or field access in math.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+pub enum MathAccess<'a> {
+    Ident(Ident<'a>),
+    FieldAccess(FieldAccess<'a>),
+}
 
-    /// Dereference to a string. Note that this shortens the lifetime, so you
-    /// may need to use [`get()`](Self::get) instead in some situations.
-    fn deref(&self) -> &Self::Target {
-        self.as_str()
+impl<'a> AstNode<'a> for MathAccess<'a> {
+    fn from_untyped(node: &'a SyntaxNode) -> Option<Self> {
+        match node.kind() {
+            SyntaxKind::Ident => Some(Self::Ident(Ident(node))),
+            SyntaxKind::FieldAccess => Some(Self::FieldAccess(FieldAccess(node))),
+            _ => Option::None,
+        }
+    }
+
+    fn to_untyped(self) -> &'a SyntaxNode {
+        match self {
+            Self::Ident(v) => v.to_untyped(),
+            Self::FieldAccess(v) => v.to_untyped(),
+        }
     }
 }
 

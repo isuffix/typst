@@ -225,13 +225,14 @@ impl Eval for ast::FuncReturn<'_> {
 
 /// Whether the expression always evaluates to the same value.
 fn is_invariant(expr: &SyntaxNode) -> bool {
+    // TODO: Doesn't this always return false? (except if `.children()` is empty?)
     match expr.cast() {
         Some(ast::Expr::Ident(_)) => false,
-        Some(ast::Expr::MathIdent(_)) => false,
         Some(ast::Expr::FieldAccess(access)) => {
             is_invariant(access.target().to_untyped())
         }
         Some(ast::Expr::FuncCall(call)) => {
+            // TODO: add MathCall?
             is_invariant(call.callee().to_untyped())
                 && is_invariant(call.args().to_untyped())
         }
