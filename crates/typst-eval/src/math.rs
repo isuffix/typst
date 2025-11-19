@@ -64,7 +64,7 @@ pub(super) fn eval_ident_wrapper(
         MathAccess::Ident(ident) => super::code::eval_ident(vm, ident, true),
         MathAccess::FieldAccess(field_access) => field_access.eval(vm),
     }?;
-    // Produce an error  for function literals that aren't being called.
+    // Produce an error for function literals that aren't being called.
     if !is_callee
         && !matches!(value, Value::Symbol(_))
         && value.clone().cast::<Func>().is_ok()
@@ -73,7 +73,7 @@ pub(super) fn eval_ident_wrapper(
         bail!(
             wrapper.span(),
             "function literal used in math";
-            hint: "math functions require parentheses: `{func}()`"
+            hint: "math functions require parentheses and a dot: `.{func}()`"
         );
     }
     Ok(value)

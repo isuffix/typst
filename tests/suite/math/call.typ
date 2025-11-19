@@ -8,6 +8,17 @@ $ pi(a,) $
 $ pi(a,b) $
 $ pi(a,b,) $
 
+--- math-call-non-func-error paged ---
+// Error: 4-7 expected function, found content
+// Hint: 4-7 this is syntax for a math function call
+// Hint: 4-7 try adding a space after the dot: `. sin`
+$ .sin(x) $
+
+--- math-call-non-func-lambda-x paged ---
+// This doesn't produce an error because `x` is math text, not an identifier.
+// TODO: Should this be an error?
+$ lambda x .x(x x) $
+
 --- math-call-unclosed-func paged ---
 #let func(x) = x
 // Error: 6-7 unclosed delimiter
@@ -165,7 +176,6 @@ $func(a: #2, ..dict, a: #3)$
 #check($args(,a,b,,,)$, "arguments([], [a], [b], [], [])")
 
 --- math-call-2d-non-func paged ---
-// Error: expected content, found array
 $ pi(a;b) $
 
 --- math-call-2d-semicolon-priority paged ---
@@ -308,40 +318,40 @@ $ int(
 
 --- math-func-literal-basic paged ---
 // Error: 2-5 function literal used in math
-// Hint: 2-5 math functions require parentheses: `mat()`
+// Hint: 2-5 math functions require parentheses and a dot: `.mat()`
 $mat$
 
 --- math-func-literal-parens paged ---
 // Error: 2-5 function literal used in math
-// Hint: 2-5 math functions require parentheses: `mat()`
-$mat ()$
+// Hint: 2-5 math functions require parentheses and a dot: `.mat()`
+$mat()$
 
 --- math-func-literal-brackets paged ---
 // Error: 2-5 function literal used in math
-// Hint: 2-5 math functions require parentheses: `mat()`
+// Hint: 2-5 math functions require parentheses and a dot: `.mat()`
 $mat[]$
 
 --- math-func-literal-field paged ---
 // Error: 3-11 function literal used in math
-// Hint: 3-11 math functions require parentheses: `std.text()`
-$ std.text () $
+// Hint: 3-11 math functions require parentheses and a dot: `.std.text()`
+$ std.text() $
 
 --- math-func-literal-delimited paged ---
 // Error: 3-5 function literal used in math
-// Hint: 3-5 math functions require parentheses: `lr()`
-$(lr ())$
+// Hint: 3-5 math functions require parentheses and a dot: `.lr()`
+$(lr())$
 
 --- math-func-literal-attach paged ---
 // Error: 4-10 function literal used in math
-// Hint: 4-10 math functions require parentheses: `attach()`
-$a_attach (b, t: c)$
+// Hint: 4-10 math functions require parentheses and a dot: `.attach()`
+$a_attach(b, t: c)$
 
 --- math-func-literal-frac paged ---
 // Error: 7-11 function literal used in math
-// Hint: 7-11 math functions require parentheses: `sqrt()`
-$ 1 / sqrt (2) $
+// Hint: 7-11 math functions require parentheses and a dot: `.sqrt()`
+$ 1 / sqrt(2) $
 
 --- math-func-literal-root paged ---
 // Error: 4-8 function literal used in math
-// Hint: 4-8 math functions require parentheses: `frac()`
-$ √frac (1,2) $
+// Hint: 4-8 math functions require parentheses and a dot: `.frac()`
+$ √frac(1,2) $

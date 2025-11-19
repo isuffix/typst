@@ -6,11 +6,10 @@ use typst_library::diag::{
 };
 use typst_library::engine::{Engine, Sink, Traced};
 use typst_library::foundations::{
-    Arg, Args, Binding, Capturer, Closure, ClosureNode, Content, Context, Func,
-    NativeElement, Scope, Scopes, SymbolElem, Value,
+    Arg, Args, Binding, Capturer, Closure, ClosureNode, Context, Func, Scope, Scopes,
+    Value,
 };
 use typst_library::introspection::Introspector;
-use typst_library::math::LrElem;
 use typst_library::routines::Routines;
 use typst_syntax::ast::{self, AstNode, Ident, MathAccess};
 use typst_syntax::{Span, Spanned, SyntaxNode};
@@ -50,7 +49,8 @@ impl Eval for ast::FuncCall<'_> {
             (callee.eval(vm)?, args.eval(vm)?.spanned(span))
         };
 
-        let func = callee_value.clone().cast::<Func>()
+        let func = callee_value
+            .cast::<Func>()
             .map_err(|err| hint_if_shadowed_std(vm, callee, err))
             .at(callee_span)?;
 
@@ -105,26 +105,12 @@ impl Eval for ast::MathCall<'_> {
             }
         };
 
-        let func_result = callee_value.clone().cast::<Func>();
-
-        if func_result.is_err() {
-            let trailing_comma = args
-                .to_untyped()
-                .children()
-                .rev()
-                .skip(1)
-                .find(|n| !n.kind().is_trivia())
-                .is_some_and(|n| n.kind() == typst_syntax::SyntaxKind::Comma);
-            return wrap_args_in_math(
-                callee_value,
-                callee_span,
-                args_value,
-                trailing_comma,
-            );
-        }
-
-        let func = func_result
-            .map_err(|err| {
+        let func = callee_value
+            .cast::<Func>()
+            .map_err(|mut err| {
+                let text = callee.to_untyped().clone().into_text();
+                err.hint(eco_format!("this is syntax for a math function call"));
+                err.hint(eco_format!("try adding a space after the dot: `. {text}`"));
                 hint_if_shadowed_std(vm, ast::Expr::MathIdentWrapper(callee), err)
             })
             .at(callee_span)?;
@@ -503,7 +489,7 @@ fn eval_field_call(
         Value::Symbol(_) | Value::Func(_) | Value::Type(_) | Value::Module(_)
     ) {
         // Certain value types may have their own ways to access method fields.
-        // e.g. `$arrow.r(v)$`, `table.cell[..]`
+        // e.g. `$.arrow.r(v)$`, `table.cell[..]`
         let value = target.field(&field, sink).at(field_span)?;
         Ok(FieldCall::Normal(value, args))
     } else {
@@ -547,33 +533,6 @@ fn missing_field_call_error(target: Value, field: Ident) -> SourceDiagnostic {
     }
 
     error
-}
-
-/// For non-functions in math, we wrap the arguments in parentheses.
-fn wrap_args_in_math(
-    callee: Value,
-    callee_span: Span,
-    mut args: Args,
-    trailing_comma: bool,
-) -> SourceResult<Value> {
-    let mut body = Content::empty();
-    for (i, arg) in args.all::<Content>()?.into_iter().enumerate() {
-        if i > 0 {
-            body += SymbolElem::packed(',');
-        }
-        body += arg;
-    }
-    if trailing_comma {
-        body += SymbolElem::packed(',');
-    }
-
-    let formatted = callee.display().spanned(callee_span)
-        + LrElem::new(SymbolElem::packed('(') + body + SymbolElem::packed(')'))
-            .pack()
-            .spanned(args.span);
-
-    args.finish()?;
-    Ok(Value::Content(formatted))
 }
 
 /// A visitor that determines which variables to capture for a closure.

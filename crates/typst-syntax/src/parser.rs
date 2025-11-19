@@ -3,8 +3,7 @@ use std::ops::{DerefMut, Index, IndexMut, Range};
 
 use ecow::{EcoString, eco_format};
 use rustc_hash::{FxHashMap, FxHashSet};
-use typst_utils::{default_math_class, defer};
-use unicode_math_class::MathClass;
+use typst_utils::defer;
 
 use crate::set::{SyntaxSet, syntax_set};
 use crate::{Lexer, SyntaxError, SyntaxKind, SyntaxMode, SyntaxNode, ast, set};
@@ -257,50 +256,33 @@ fn math_expr_prec(p: &mut Parser, min_prec: u8, stop_set: SyntaxSet) {
     let Some(p) = &mut p.increase_depth() else { return };
 
     let m = p.marker();
-    let mut continuable = false;
     match p.current() {
         SyntaxKind::Hash => embedded_code_expr(p),
-        // The lexer manages creating full FieldAccess nodes if needed.
-        SyntaxKind::MathIdentWrapper => {
-            continuable = true;
+        // Either parse a math function call or convert the dot to `MathText`.
+        SyntaxKind::Dot => {
             p.eat();
-            // Parse a function call for an identifier or field access.
-            if MATH_FUNC_PREC >= min_prec && p.directly_at(SyntaxKind::LeftParen) {
+            if p.at(SyntaxKind::MathIdentWrapper)
+                && !p.had_trivia()
+                // Note: No precedence check, function calls are atomic.
+                && p.lexer.maybe_math_call()
+            {
+                p.eat();
                 math_args(p);
                 p.wrap(m, SyntaxKind::MathCall);
-                continuable = false;
+            } else {
+                p[m] = SyntaxNode::leaf(SyntaxKind::MathText, ".");
             }
         }
 
+        // Delimiters are atomic expressions.
         SyntaxKind::LeftBrace | SyntaxKind::LeftParen => {
             math_delimited(p);
         }
         SyntaxKind::RightBrace if p.current_text() == "|]" => {
             p.convert_and_eat(SyntaxKind::MathShorthand);
         }
-        SyntaxKind::Dot
-        | SyntaxKind::Bang
-        | SyntaxKind::Comma
-        | SyntaxKind::Semicolon
-        | SyntaxKind::RightBrace
-        | SyntaxKind::RightParen => {
-            p.convert_and_eat(SyntaxKind::MathText);
-        }
 
-        SyntaxKind::MathText => {
-            continuable = is_math_alphabetic(p.current_text());
-            p.eat();
-        }
-
-        SyntaxKind::Linebreak
-        | SyntaxKind::MathAlignPoint
-        | SyntaxKind::MathShorthand => p.eat(),
-
-        SyntaxKind::MathPrimes | SyntaxKind::Escape | SyntaxKind::Str => {
-            continuable = true;
-            p.eat();
-        }
-
+        // Roots are the only prefix operators.
         SyntaxKind::Root => {
             p.eat();
             let m2 = p.marker();
@@ -309,19 +291,25 @@ fn math_expr_prec(p: &mut Parser, min_prec: u8, stop_set: SyntaxSet) {
             p.wrap(m, SyntaxKind::MathRoot);
         }
 
-        _ => p.expected("expression"),
-    }
+        // These are used elsewhere in math, but normally render as text.
+        SyntaxKind::Bang
+        | SyntaxKind::Comma
+        | SyntaxKind::Semicolon
+        | SyntaxKind::RightBrace
+        | SyntaxKind::RightParen => {
+            p.convert_and_eat(SyntaxKind::MathText);
+        }
 
-    // Maybe recognize an implicit function call: a 'continuable' token followed
-    // by delimiters will group as one with the precedence of a normal function.
-    // E.g. `a(b)/c` parses as `(a(b))/c` when `a` is continuable.
-    if continuable
-        && MATH_FUNC_PREC >= min_prec
-        && !p.had_trivia()
-        && p.at_set(syntax_set!(LeftBrace, LeftParen))
-    {
-        math_delimited(p);
-        p.wrap(m, SyntaxKind::Math);
+        SyntaxKind::Str
+        | SyntaxKind::Escape
+        | SyntaxKind::MathText
+        | SyntaxKind::Linebreak
+        | SyntaxKind::MathPrimes
+        | SyntaxKind::MathShorthand
+        | SyntaxKind::MathAlignPoint
+        | SyntaxKind::MathIdentWrapper => p.eat(),
+
+        _ => p.expected("expression"),
     }
 
     // Parse infix and postfix operators. The general form of a parsed op looks
@@ -384,7 +372,6 @@ fn math_expr_prec(p: &mut Parser, min_prec: u8, stop_set: SyntaxSet) {
 }
 
 // These are declared here so they're easier to compare with `math_op`.
-const MATH_FUNC_PREC: u8 = 2;
 const MATH_ROOT_PREC: u8 = 2;
 
 /// Precedence and wrapper kinds for infix and postfix math operators.
@@ -401,18 +388,6 @@ fn math_op(
         _ => return None,
     };
     Some(op)
-}
-
-/// Whether text counts as alphabetic in math. For the `Text` and `MathText`
-/// kinds, this causes them to group with parens as an implicit function call.
-fn is_math_alphabetic(text: &str) -> bool {
-    if let Some((0, c)) = text.char_indices().next_back() {
-        // Just a single character.
-        c.is_alphabetic() || default_math_class(c) == Some(MathClass::Alphabetic)
-    } else {
-        // Multiple characters.
-        text.chars().all(char::is_alphabetic)
-    }
 }
 
 /// Parse matched delimiters in math: `[x + y]`.

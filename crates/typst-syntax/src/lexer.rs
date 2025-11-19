@@ -712,6 +712,11 @@ impl Lexer<'_> {
         SyntaxKind::MathText
     }
 
+    /// Whether the next character is an opening parenthesis for a math call.
+    pub fn maybe_math_call(&self) -> bool {
+        self.s.at("(")
+    }
+
     /// Handle named arguments in math function call.
     pub fn maybe_math_named_arg(&mut self, start: usize) -> Option<SyntaxNode> {
         let cursor = self.s.cursor();
