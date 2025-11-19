@@ -650,8 +650,10 @@ impl Lexer<'_> {
                     // If this was just a single grapheme.
                     SyntaxKind::MathText
                 } else {
-                    let (kind, node) = self.math_ident_or_field(start);
-                    return (kind, Some(node));
+                    // We wrap identifiers and field accesses in `MathIdentWrapper`.
+                    let node = self.math_ident_or_field(start);
+                    let kind = SyntaxKind::MathIdentWrapper;
+                    return (kind, Some(SyntaxNode::inner(kind, vec![node])));
                 }
             }
 
@@ -661,20 +663,23 @@ impl Lexer<'_> {
         (kind, None)
     }
 
-    /// Parse a single `MathIdent` or an entire `FieldAccess`.
-    fn math_ident_or_field(&mut self, start: usize) -> (SyntaxKind, SyntaxNode) {
-        let mut kind = SyntaxKind::MathIdent;
-        let mut node = SyntaxNode::leaf(kind, self.s.from(start));
+    /// Parse a single `Ident` or an entire `FieldAccess`.
+    ///
+    /// We also wrap the initial identifier of a field access in `MathIdentWrapper`.
+    fn math_ident_or_field(&mut self, start: usize) -> SyntaxNode {
+        let mut node = SyntaxNode::leaf(SyntaxKind::Ident, self.s.from(start));
         while let Some(ident) = self.maybe_dot_ident() {
-            kind = SyntaxKind::FieldAccess;
+            if node.is_leaf() {
+                node = SyntaxNode::inner(SyntaxKind::MathIdentWrapper, vec![node]);
+            }
             let field_children = vec![
                 node,
                 SyntaxNode::leaf(SyntaxKind::Dot, '.'),
                 SyntaxNode::leaf(SyntaxKind::Ident, ident),
             ];
-            node = SyntaxNode::inner(kind, field_children);
+            node = SyntaxNode::inner(SyntaxKind::FieldAccess, field_children);
         }
-        (kind, node)
+        node
     }
 
     /// If at a dot and a math identifier, eat and return the identifier.

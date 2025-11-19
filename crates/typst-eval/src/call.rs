@@ -12,7 +12,7 @@ use typst_library::foundations::{
 use typst_library::introspection::Introspector;
 use typst_library::math::LrElem;
 use typst_library::routines::Routines;
-use typst_syntax::ast::{self, AstNode, Ident};
+use typst_syntax::ast::{self, AstNode, Ident, MathAccess};
 use typst_syntax::{Span, Spanned, SyntaxNode};
 use typst_utils::{LazyHash, Protected};
 
@@ -44,6 +44,27 @@ impl Eval for ast::FuncCall<'_> {
                     (callee, args)
                 }
                 FieldCall::Resolved(value) => return Ok(value),
+            }
+        } else if let ast::Expr::MathIdentWrapper(wrapper) = callee {
+            match wrapper.inner() {
+                // TODO: Factor out the duplicate code later.
+                MathAccess::FieldAccess(access) => {
+                    let target = access.target();
+                    let field = access.field();
+                    match eval_field_call(target, field, args, span, vm)? {
+                        FieldCall::Normal(callee, args) => {
+                            if vm.inspected == Some(callee_span) {
+                                vm.trace(callee.clone());
+                            }
+                            (callee, args)
+                        }
+                        FieldCall::Resolved(value) => return Ok(value),
+                    }
+                }
+                MathAccess::Ident(ident) => (
+                    super::code::eval_ident(vm, ident, true)?,
+                    args.eval(vm)?.spanned(span),
+                ),
             }
         } else {
             // Function call order: we evaluate the callee before the arguments.
@@ -331,7 +352,7 @@ fn eval_field_call(
             target => (target.clone(), args),
         }
     } else {
-        let target = target_expr.eval(vm)?;
+        let target = super::code::eval_field_target(vm, target_expr)?;
         let args = args.eval(vm)?.spanned(span);
         (target, args)
     };
@@ -402,7 +423,7 @@ fn missing_field_call_error(target: Value, field: Ident) -> SourceDiagnostic {
 /// Check if the expression is in a math context.
 fn in_math(expr: ast::Expr) -> bool {
     match expr {
-        ast::Expr::MathIdent(_) => true,
+        ast::Expr::MathIdentWrapper(_) => true,
         ast::Expr::FieldAccess(access) => in_math(access.target()),
         _ => false,
     }
@@ -467,9 +488,14 @@ impl<'a> CapturesVisitor<'a> {
             // actually bind a new name are handled below (individually through
             // the expressions that contain them).
             Some(ast::Expr::Ident(ident)) => self.capture(ident.get(), Scopes::get),
-            Some(ast::Expr::MathIdent(ident)) => {
-                self.capture(ident.get(), Scopes::get_in_math)
-            }
+            Some(ast::Expr::MathIdentWrapper(wrapper)) => match wrapper.inner() {
+                MathAccess::Ident(ident) => {
+                    self.capture(ident.get(), Scopes::get_in_math)
+                }
+                MathAccess::FieldAccess(field_access) => {
+                    self.visit(field_access.target().to_untyped())
+                }
+            },
 
             // Code and content blocks create a scope.
             Some(ast::Expr::CodeBlock(_) | ast::Expr::ContentBlock(_)) => {

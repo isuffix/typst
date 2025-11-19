@@ -304,3 +304,43 @@ $ int(
   // Error: 3-8 missing argument: value
   int()
 ) $
+
+--- math-func-literal-basic paged ---
+// Error: 2-5 function literal used in math
+// Hint: 2-5 math functions require parentheses: `mat()`
+$mat$
+
+--- math-func-literal-parens paged ---
+// Error: 2-5 function literal used in math
+// Hint: 2-5 math functions require parentheses: `mat()`
+$mat ()$
+
+--- math-func-literal-brackets paged ---
+// Error: 2-5 function literal used in math
+// Hint: 2-5 math functions require parentheses: `mat()`
+$mat[]$
+
+--- math-func-literal-field paged ---
+// Error: 3-11 function literal used in math
+// Hint: 3-11 math functions require parentheses: `std.text()`
+$ std.text () $
+
+--- math-func-literal-delimited paged ---
+// Error: 3-5 function literal used in math
+// Hint: 3-5 math functions require parentheses: `lr()`
+$(lr ())$
+
+--- math-func-literal-attach paged ---
+// Error: 4-10 function literal used in math
+// Hint: 4-10 math functions require parentheses: `attach()`
+$a_attach (b, t: c)$
+
+--- math-func-literal-frac paged ---
+// Error: 7-11 function literal used in math
+// Hint: 7-11 math functions require parentheses: `sqrt()`
+$ 1 / sqrt (2) $
+
+--- math-func-literal-root paged ---
+// Error: 4-8 function literal used in math
+// Hint: 4-8 math functions require parentheses: `frac()`
+$ √frac (1,2) $

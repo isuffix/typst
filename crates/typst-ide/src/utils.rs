@@ -115,6 +115,7 @@ pub fn globals<'a>(world: &'a dyn IdeWorld, leaf: &LinkedNode) -> &'a Scope {
             | Some(SyntaxKind::Math)
             | Some(SyntaxKind::MathFrac)
             | Some(SyntaxKind::MathAttach)
+            | Some(SyntaxKind::MathIdentWrapper)
     ) && leaf
         .prev_leaf()
         .is_none_or(|prev| !matches!(prev.kind(), SyntaxKind::Hash));

@@ -1,11 +1,13 @@
 use ecow::eco_format;
-use typst_library::diag::{At, SourceResult};
-use typst_library::foundations::{Content, NativeElement, Symbol, SymbolElem, Value};
+use typst_library::diag::{SourceResult, bail};
+use typst_library::foundations::{
+    Content, Func, NativeElement, Symbol, SymbolElem, Value,
+};
 use typst_library::math::{
     AlignPointElem, AttachElem, EquationElem, FracElem, LrElem, PrimesElem, RootElem,
 };
 use typst_library::text::TextElem;
-use typst_syntax::ast::{self, AstNode, MathTextKind};
+use typst_syntax::ast::{self, AstNode, MathAccess, MathTextKind};
 
 use crate::{Eval, Vm};
 
@@ -42,18 +44,39 @@ impl Eval for ast::MathText<'_> {
     }
 }
 
-impl Eval for ast::MathIdent<'_> {
+impl Eval for ast::MathIdentWrapper<'_> {
     type Output = Value;
 
     fn eval(self, vm: &mut Vm) -> SourceResult<Self::Output> {
-        let span = self.span();
-        Ok(vm
-            .scopes
-            .get_in_math(&self)
-            .at(span)?
-            .read_checked((&mut vm.engine, span))
-            .clone())
+        match self.inner() {
+            MathAccess::Ident(ident) => super::code::eval_ident(vm, ident, true),
+            MathAccess::FieldAccess(field_access) => field_access.eval(vm),
+        }
     }
+}
+
+pub(super) fn eval_ident_wrapper(
+    vm: &mut Vm,
+    wrapper: ast::MathIdentWrapper,
+    is_callee: bool,
+) -> SourceResult<Value> {
+    let value = match wrapper.inner() {
+        MathAccess::Ident(ident) => super::code::eval_ident(vm, ident, true),
+        MathAccess::FieldAccess(field_access) => field_access.eval(vm),
+    }?;
+    // Produce an error  for function literals that aren't being called.
+    if !is_callee
+        && !matches!(value, Value::Symbol(_))
+        && value.clone().cast::<Func>().is_ok()
+    {
+        let func = wrapper.to_untyped().clone().into_text();
+        bail!(
+            wrapper.span(),
+            "function literal used in math";
+            hint: "math functions require parentheses: `{func}()`"
+        );
+    }
+    Ok(value)
 }
 
 impl Eval for ast::MathShorthand<'_> {
