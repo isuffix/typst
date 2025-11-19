@@ -72,7 +72,6 @@ pub(super) fn eval_ident_wrapper(
         let func = wrapper.to_untyped().clone().into_text();
         bail!(
             wrapper.span(),
-            // TODO: Add "and a dot"
             "function literal used in math";
             hint: "math functions require parentheses: `{func}()`"
         );

@@ -86,6 +86,7 @@ use ecow::EcoString;
 use unscanny::Scanner;
 
 use crate::package::PackageSpec;
+use crate::set::syntax_set;
 use crate::{Span, SyntaxKind, SyntaxNode, is_ident, is_newline};
 
 /// A typed AST node.
@@ -256,6 +257,8 @@ pub enum Expr<'a> {
     MathShorthand(MathShorthand<'a>),
     /// An alignment point in math: `&`.
     MathAlignPoint(MathAlignPoint<'a>),
+    /// A function call in math: `.mat(delim: "[", a, b; c, d)`
+    MathCall(MathCall<'a>),
     /// Matched delimiters in math: `[x + y]`.
     MathDelimited(MathDelimited<'a>),
     /// A base with optional attachments in math: `a_1^2`.
@@ -369,6 +372,7 @@ impl<'a> AstNode<'a> for Expr<'a> {
             SyntaxKind::MathAlignPoint => {
                 Some(Self::MathAlignPoint(MathAlignPoint(node)))
             }
+            SyntaxKind::MathCall => Some(Self::MathCall(MathCall(node))),
             SyntaxKind::MathDelimited => Some(Self::MathDelimited(MathDelimited(node))),
             SyntaxKind::MathAttach => Some(Self::MathAttach(MathAttach(node))),
             SyntaxKind::MathPrimes => Some(Self::MathPrimes(MathPrimes(node))),
@@ -436,6 +440,7 @@ impl<'a> AstNode<'a> for Expr<'a> {
             Self::MathIdentWrapper(v) => v.to_untyped(),
             Self::MathShorthand(v) => v.to_untyped(),
             Self::MathAlignPoint(v) => v.to_untyped(),
+            Self::MathCall(v) => v.to_untyped(),
             Self::MathDelimited(v) => v.to_untyped(),
             Self::MathAttach(v) => v.to_untyped(),
             Self::MathPrimes(v) => v.to_untyped(),
@@ -974,6 +979,50 @@ impl MathShorthand<'_> {
             .find(|&&(s, _)| s == text)
             .map_or_else(char::default, |&(_, c)| c)
     }
+}
+
+node! {
+    /// A function call in math: `.mat(delim: "[", a, b; c, d)`.
+    struct MathCall
+}
+
+impl<'a> MathCall<'a> {
+    /// The function to call.
+    pub fn callee(self) -> MathIdentWrapper<'a> {
+        self.0.try_cast_first().unwrap()
+    }
+
+    /// The arguments to the function.
+    pub fn args(self) -> MathArgs<'a> {
+        self.0.cast_last()
+    }
+}
+
+node! {
+    /// Function arguments in math: `(delim: "[", a, b; c, d)`.
+    struct MathArgs
+}
+
+impl<'a> MathArgs<'a> {
+    /// The arguments and whether they end in a semicolon.
+    pub fn items(self) -> impl Iterator<Item = MathArg<'a>> {
+        let mut children = self.0.children();
+        std::iter::from_fn(move || {
+            let arg = children.find_map(|node| node.cast::<Arg>())?;
+            let separator = children
+                .find(|node| {
+                    syntax_set!(Comma, Semicolon, RightParen).contains(node.kind())
+                })
+                .unwrap();
+            let ends_in_semicolon = separator.kind() == SyntaxKind::Semicolon;
+            Some(MathArg { arg, ends_in_semicolon })
+        })
+    }
+}
+
+pub struct MathArg<'a> {
+    pub arg: Arg<'a>,
+    pub ends_in_semicolon: bool,
 }
 
 node! {

@@ -85,16 +85,21 @@ impl<'a> Vm<'a> {
 /// Provide a hint if the callee is a shadowed standard library function.
 pub fn hint_if_shadowed_std(
     vm: &mut Vm,
-    callee: &ast::Expr,
+    callee: ast::Expr,
     mut err: HintedString,
 ) -> HintedString {
-    if let ast::Expr::Ident(ident) = callee {
-        let ident = ident.get();
-        if vm.scopes.check_std_shadowed(ident) {
-            err.hint(eco_format!(
-                "use `std.{ident}` to access the shadowed standard library function",
-            ));
-        }
+    let ident = match callee {
+        ast::Expr::Ident(ident) => ident.get(),
+        ast::Expr::MathIdentWrapper(wrapper) => match wrapper.inner() {
+            ast::MathAccess::Ident(ident) => ident.get(),
+            ast::MathAccess::FieldAccess(_) => return err,
+        },
+        _ => return err,
+    };
+    if vm.scopes.check_std_shadowed(ident) {
+        err.hint(eco_format!(
+            "use `std.{ident}` to access the shadowed standard library function",
+        ));
     }
     err
 }
