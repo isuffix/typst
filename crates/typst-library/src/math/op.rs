@@ -29,6 +29,20 @@ pub struct OpElem {
     /// Whether the operator should show attachments as limits in display mode.
     #[default(false)]
     pub limits: bool,
+
+    /// Whether the operator should tightly group with parentheses in function
+    /// syntax.
+    ///
+    /// TODO: Rewrite this a bit.
+    ///
+    /// This is only needed when using fraction syntax
+    /// ```example
+    /// #let arcsech = math.op($sech^(-1)$, functional: true)
+    /// $ arcsech(i x)/2 = (i arcsec(x))/2 $ // TODO: verify the math
+    /// //       ^^^^^^^ Without `functional: true`, this would be an error
+    /// ```
+    #[default(false)]
+    pub functional: bool,
 }
 
 macro_rules! ops {
@@ -41,6 +55,7 @@ macro_rules! ops {
                     // Latex also uses their equivalent of `TextElem` here.
                     OpElem::new(TextElem::new(operator).into())
                         .with_limits(ops!(@limit $($tts)*))
+                        .with_functional(true) // TODO: Add to the macro.
                         .pack()
                 );
             })*

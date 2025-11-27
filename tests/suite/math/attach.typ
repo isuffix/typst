@@ -43,6 +43,7 @@ $
 
 --- math-attach-followed-by-func-call paged ---
 // Test function call after subscript.
+#set page(width: auto)
 $pi_1(Y), a_f(x), a^zeta (x), a^beta(b)_gamma(c) \
  a^subset.eq (x), a_(zeta(x)), pi_(1(Y)), a^(beta(b))_(gamma(c))$
 

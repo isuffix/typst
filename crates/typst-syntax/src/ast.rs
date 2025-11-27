@@ -847,16 +847,6 @@ impl<'a> Math<'a> {
     pub fn exprs(self) -> impl DoubleEndedIterator<Item = Expr<'a>> {
         self.0.children().filter_map(Expr::cast_with_space)
     }
-
-    /// Whether this `Math` node was originally parenthesized.
-    pub fn was_deparenthesized(self) -> bool {
-        let mut iter = self.0.children();
-        matches!(iter.next().map(SyntaxNode::kind), Some(SyntaxKind::LeftParen))
-            && matches!(
-                iter.next_back().map(SyntaxNode::kind),
-                Some(SyntaxKind::RightParen)
-            )
-    }
 }
 
 node! {
@@ -1109,14 +1099,65 @@ node! {
 
 impl<'a> MathFrac<'a> {
     /// The numerator.
-    pub fn num(self) -> Expr<'a> {
-        self.0.cast_first()
+    pub fn num(self) -> FracData<'a> {
+        build_frac_data(self.0.children())
     }
 
     /// The denominator.
-    pub fn denom(self) -> Expr<'a> {
-        self.0.cast_last()
+    pub fn denom(self) -> FracData<'a> {
+        build_frac_data(self.0.children().rev())
     }
+}
+
+fn can_start_implicit_func(node: &SyntaxNode) -> bool {
+    match node.kind() {
+        SyntaxKind::Str
+        | SyntaxKind::Escape
+        | SyntaxKind::MathPrimes
+        | SyntaxKind::MathIdentWrapper => true,
+        SyntaxKind::MathText => crate::parser::is_math_alphabetic(node.text()),
+        SyntaxKind::MathAttach => {
+            // TODO: Descend the leaves to find the answer.
+            true
+        }
+        _ => false,
+    }
+}
+
+fn build_frac_data<'a>(mut iter: impl Iterator<Item = &'a SyntaxNode>) -> FracData<'a> {
+    let expr: Expr = iter.find_map(SyntaxNode::cast).unwrap();
+    let trivia_between_slash = iter.next().unwrap().kind().is_trivia();
+    let mut deparenthesized = false;
+    let mut like_func_call = Option::None;
+    match expr {
+        Expr::Math(Math(node)) => {
+            let mut children = node.children();
+            if let Some(first) = children.next() {
+                // Don't need to check for right paren because its implicitly true.
+                deparenthesized = first.kind() == SyntaxKind::LeftParen;
+                if let Some(second) = children.next()
+                    && let Some(delims) = MathDelimited::from_untyped(second)
+                    && can_start_implicit_func(first)
+                {
+                    like_func_call = Some((first, delims))
+                }
+            }
+        }
+        _ => {}
+    }
+    FracData {
+        expr,
+        deparenthesized,
+        trivia_between_slash,
+        like_func_call,
+    }
+}
+
+pub struct FracData<'a> {
+    pub expr: Expr<'a>,
+    pub deparenthesized: bool,
+    pub like_func_call: Option<(&'a SyntaxNode, MathDelimited<'a>)>,
+    pub trivia_between_slash: bool,
 }
 
 node! {

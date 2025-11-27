@@ -40,22 +40,84 @@ $ tan(x) = sin(x) / cos(x) \
 
 --- math-frac-precedence paged ---
 // Test precedence.
-$ a_1/b_2, 1/f(x), zeta(x)/2, "foo"[|x|]/2 \
+$ a_1/b_2, 1/(f(x)), (zeta(x))/2, ("foo"[|x|])/2 \
   1.2/3.7, 2.3^3.4 \
   f [x]/2, phi [x]/2 \
   +[x]/2, 1(x)/2, 2[x]/2, 🏳️‍🌈[x]/2 \
   (a)b/2, b(a)[b]/2 \
   n!/2, 5!/2, n !/2, 1/n!, 1/5! $
 
---- math-frac-implicit-func paged ---
-// Test other precedence interactions with implicit function calls.
-$
-  f'(x) / f_pi{x} \
-  sin^2(x) / f_0(x) quad f!(x) / g^(-1)(x) \
-  a_\u{2a}[|x} / a_"2a"{x|] quad f_pi.alt{x} / f_#math.pi.alt{x} \
-  a(b)_c(d)^e(f) / g(h)'_i(j)' \
-  (x)'(x)'(x)' / (x)'(x)'(x)' \
-$
+--- math-frac-func-call-f-denom paged ---
+// Error: 3-11 notation is ambiguous
+// Hint: 3-11 todo
+$ 1/f(x+1) $
+
+--- math-frac-func-call-f-num paged ---
+// Error: 3-11 notation is ambiguous
+// Hint: 3-11 todo
+$ f(x+1)/1 $
+
+--- math-frac-func-call-f-both paged ---
+// Error: 3-16 notation is ambiguous
+// Hint: 3-16 todo
+// Hint: 3-16 todo
+$ f(x+1)/f(x+1) $
+
+--- math-frac-func-call-pi-both paged ---
+// Error: 3-18 notation is ambiguous
+// Hint: 3-18 to display `pi` and `(x+1)` together, add parentheses: `(pi(x+1))`
+// Hint: 3-18 to display `pi` and `(x+1)` separately, add a space: `pi (x+1)`
+$ pi(x+1)/pi(x+1) $
+
+--- math-frac-implicit-func-1 paged ---
+// Test precedence interactions with implicit function calls.
+// Error: 3-12 notation is ambiguous
+// Hint: 3-12 todo
+$ f'(x) / 1 $
+
+--- math-frac-implicit-func-2 paged ---
+// Error: 3-14 notation is ambiguous
+// Hint: 3-14 todo
+$ 1 / f_pi{x} $
+
+--- math-frac-implicit-func-3 paged ---
+// TODO: Error here
+$ sin^2(x) / 1 $
+
+--- math-frac-implicit-func-4 paged ---
+$ f!(x) / g^(-1)(x) $
+
+--- math-frac-implicit-func-5 paged ---
+// Error: 3-19 notation is ambiguous
+// Hint: 3-19 todo
+$ a_\u{2a}[|x} / 1 $
+
+--- math-frac-implicit-func-6 paged ---
+// Error: 3-17 notation is ambiguous
+// Hint: 3-17 todo
+$ 1 / a_"2a"{x|] $
+
+--- math-frac-implicit-func-7 paged ---
+// Error: 3-18 notation is ambiguous
+// Hint: 3-18 todo
+$ f_pi.alt{x} / 1 $
+
+--- math-frac-implicit-func-8 paged ---
+// This is fine.
+$ 1 / f_#math.pi.alt{x} $
+
+--- math-frac-implicit-func-9 paged ---
+// Error: 3-21 notation is ambiguous
+// Hint: 3-21 todo
+$ a(b)_c(d)^e(f) / 1 $
+
+--- math-frac-implicit-func-10 paged ---
+// TODO: Why isn't this g(...) ?
+$ 1 / g(h)'_i(j)' $
+
+--- math-frac-implicit-func-11 paged ---
+// TODO: Yikes
+$ (x)'(x)'(x)' / (x)'(x)'(x)' $
 
 --- math-frac-gap paged ---
 // Test that the gap above and below the fraction rule is correct.

@@ -78,60 +78,65 @@ impl Eval for ast::MathCall<'_> {
     type Output = Value;
 
     fn eval(self, vm: &mut Vm) -> SourceResult<Self::Output> {
-        // TODO: Factor out the duplicate code later.
-        let span = self.span();
-        let callee = self.callee();
-        let callee_span = callee.span();
-        let args = self.args();
-
-        vm.engine.route.check_call_depth().at(span)?;
-
-        // Try to evaluate as a call to an associated function or field.
-        let (func, args_value) = match callee.inner() {
-            ast::MathAccess::FieldAccess(access) => {
-                let target = access.target();
-                let field = access.field();
-                let (callee_value, args_value) =
-                    match eval_field_call(target, field, args, span, vm)? {
-                        FieldCall::Normal(callee, args) => {
-                            if vm.inspected == Some(callee_span) {
-                                vm.trace(callee.clone());
-                            }
-                            (callee, args)
-                        }
-                        FieldCall::Resolved(value) => return Ok(value),
-                    };
-                match callee_value.clone().cast::<Func>() {
-                    Err(_) => return wrap_args_in_math(vm, callee, callee_value, args),
-                    Ok(func) => (func.spanned(callee_span), args_value),
-                }
-            }
-            ast::MathAccess::Ident(ident) => {
-                // Function call order: we evaluate the callee before the arguments.
-                let callee_value = super::code::eval_ident(vm, ident, true)?;
-                match callee_value.clone().cast::<Func>() {
-                    Err(_) => return wrap_args_in_math(vm, callee, callee_value, args),
-                    Ok(func) => (func.spanned(callee_span), args.eval(vm)?.spanned(span)),
-                }
-            }
-        };
-
-        let point = || Tracepoint::Call(func.name().map(Into::into));
-        let f = || {
-            func.call(&mut vm.engine, vm.context, args_value).trace(
-                vm.world(),
-                point,
-                span,
-            )
-        };
-
-        // Stacker is broken on WASM.
-        #[cfg(target_arch = "wasm32")]
-        return f();
-
-        #[cfg(not(target_arch = "wasm32"))]
-        stacker::maybe_grow(32 * 1024, 2 * 1024 * 1024, f)
+        eval_math_call(vm, self, None)
     }
+}
+
+pub(super) fn eval_math_call(
+    vm: &mut Vm,
+    math_call: ast::MathCall,
+    frac_span: Option<Span>,
+) -> SourceResult<Value> {
+    // TODO: Factor out the duplicate code later.
+    let span = math_call.span();
+    let callee = math_call.callee();
+    let callee_span = callee.span();
+    let args = math_call.args();
+
+    vm.engine.route.check_call_depth().at(span)?;
+
+    // Try to evaluate as a call to an associated function or field.
+    let (func, args_value) = match callee.inner() {
+        ast::MathAccess::FieldAccess(access) => {
+            let target = access.target();
+            let field = access.field();
+            let (callee_value, args_value) =
+                match eval_field_call(target, field, args, span, vm)? {
+                    FieldCall::Normal(callee, args) => {
+                        if vm.inspected == Some(callee_span) {
+                            vm.trace(callee.clone());
+                        }
+                        (callee, args)
+                    }
+                    FieldCall::Resolved(value) => return Ok(value),
+                };
+            match callee_value.clone().cast::<Func>() {
+                Err(_) => return wrap_args_in_math(vm, callee, callee_value, args, frac_span),
+                Ok(func) => (func.spanned(callee_span), args_value),
+            }
+        }
+        ast::MathAccess::Ident(ident) => {
+            // Function call order: we evaluate the callee before the arguments.
+            let callee_value = super::code::eval_ident(vm, ident, true)?;
+            match callee_value.clone().cast::<Func>() {
+                Err(_) => return wrap_args_in_math(vm, callee, callee_value, args, frac_span),
+                Ok(func) => (func.spanned(callee_span), args.eval(vm)?.spanned(span)),
+            }
+        }
+    };
+
+    let point = || Tracepoint::Call(func.name().map(Into::into));
+    let f = || {
+        func.call(&mut vm.engine, vm.context, args_value)
+            .trace(vm.world(), point, span)
+    };
+
+    // Stacker is broken on WASM.
+    #[cfg(target_arch = "wasm32")]
+    return f();
+
+    #[cfg(not(target_arch = "wasm32"))]
+    stacker::maybe_grow(32 * 1024, 2 * 1024 * 1024, f)
 }
 
 impl Eval for ast::Args<'_> {
@@ -542,7 +547,19 @@ fn wrap_args_in_math(
     callee: ast::MathIdentWrapper,
     callee_value: Value,
     args: ast::MathArgs,
+    frac_span: Option<Span>,
 ) -> SourceResult<Value> {
+    if let Some(frac_span) = frac_span
+        && !callee_value.field("functional", ()).is_ok_and(|f| f == Value::Bool(true))
+     {
+        let name = callee.to_untyped().clone().into_text();
+        let args = args.to_untyped().clone().into_text();
+        bail!(
+            frac_span, "notation is ambiguous";
+            hint: "to display `{name}` and `{args}` together, add parentheses: `({name}{args})`";
+            hint: "to display `{name}` and `{args}` separately, add a space: `{name} {args}`",
+        )
+    }
     let mut errors: EcoVec<SourceDiagnostic> = EcoVec::new();
     let mut body = Vec::new();
     for child in args.to_untyped().children() {

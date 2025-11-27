@@ -1,5 +1,5 @@
-use ecow::eco_format;
-use typst_library::diag::{SourceResult, bail};
+use ecow::{EcoString, eco_format, eco_vec};
+use typst_library::diag::{SourceDiagnostic, SourceResult, bail};
 use typst_library::foundations::{
     Content, Func, NativeElement, Symbol, SymbolElem, Value,
 };
@@ -144,19 +144,51 @@ impl Eval for ast::MathFrac<'_> {
     type Output = Content;
 
     fn eval(self, vm: &mut Vm) -> SourceResult<Self::Output> {
-        let num_expr = self.num();
-        let num = num_expr.eval_display(vm)?;
-        let denom_expr = self.denom();
-        let denom = denom_expr.eval_display(vm)?;
+        let num = self.num();
+        let denom = self.denom();
 
-        let num_depar =
-            matches!(num_expr, ast::Expr::Math(math) if math.was_deparenthesized());
-        let denom_depar =
-            matches!(denom_expr, ast::Expr::Math(math) if math.was_deparenthesized());
+        // Check for ambiguous notation from implicit function calls.
+        let mut hints: Vec<EcoString> = Vec::new();
+        let mut bad_trivia = false;
+        if let Some((_callee, _delims)) = num.like_func_call {
+            hints.push(eco_format!("todo"));
+            bad_trivia |= num.trivia_between_slash;
+        }
+        if let Some((_callee, _delims)) = denom.like_func_call {
+            hints.push(eco_format!("todo"));
+            bad_trivia |= denom.trivia_between_slash;
+        }
+        if !hints.is_empty() {
+            if bad_trivia {
+                // TODO.
+            }
+            let error = SourceDiagnostic::error(self.span(), "notation is ambiguous")
+                .with_hints(hints);
+            return Err(eco_vec![error]);
+        }
 
-        Ok(FracElem::new(num, denom)
-            .with_num_deparenthesized(num_depar)
-            .with_denom_deparenthesized(denom_depar)
+        // Evaluate sides and check for ambiguous notation from actual function calls.
+        let frac_span = Some(self.span());
+        let num_content = match num.expr {
+            ast::Expr::MathCall(call) => {
+                crate::call::eval_math_call(vm, call, frac_span)?
+                    .display()
+                    .spanned(call.span())
+            }
+            expr => expr.eval_display(vm)?,
+        };
+        let denom_content = match denom.expr {
+            ast::Expr::MathCall(call) => {
+                crate::call::eval_math_call(vm, call, frac_span)?
+                    .display()
+                    .spanned(call.span())
+            }
+            expr => expr.eval_display(vm)?,
+        };
+
+        Ok(FracElem::new(num_content, denom_content)
+            .with_num_deparenthesized(num.deparenthesized)
+            .with_denom_deparenthesized(denom.deparenthesized)
             .pack())
     }
 }
