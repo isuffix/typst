@@ -165,7 +165,6 @@ $func(a: #2, ..dict, a: #3)$
 #check($args(,a,b,,,)$, "arguments([], [a], [b], [], [])")
 
 --- math-call-2d-non-func paged ---
-// Error: expected content, found array
 $ pi(a;b) $
 
 --- math-call-2d-semicolon-priority paged ---
@@ -238,7 +237,6 @@ $ sin( ,/**/x/**/, , /**/y, ,/**/, ) $
 
 --- math-call-value-non-func paged ---
 $ sin(1) $
-// Error: 8-9 expected content, found integer
 $ sin(#1) $
 
 --- math-call-pass-to-box paged ---
@@ -269,8 +267,16 @@ $ phi(x, y) $
 $ phi(1,2,,3,) $
 
 --- math-call-symbol-named-argument paged ---
-// Error: 10-18 unexpected argument: alpha
+// Error: 10-18 named arguments can only be used with functions
+// Hint: 10-18 `phi` is not a function
+// Hint: 10-18 try escaping the colon: `alpha\: y`
 $ phi(x, alpha: y) $
+
+--- math-call-symbol-spread-argument paged ---
+// Error: 10-17 spread arguments can only be used with functions
+// Hint: 10-17 `phi` is not a function
+// Hint: 10-17 try adding a space: `.. alpha`
+$ phi(x, ..alpha) $
 
 --- issue-3774-math-call-empty-2d-args paged ---
 $ mat(;,) $
@@ -307,41 +313,41 @@ $ int(
 ) $
 
 --- math-func-literal-basic paged ---
-// Error: 2-5 function literal used in math
-// Hint: 2-5 math functions require parentheses: `mat()`
+// Error: 2-5 this does not call the `mat` function
+// Hint: 2-5 to call the `mat` function, write `mat()`
 $mat$
 
 --- math-func-literal-parens paged ---
-// Error: 2-5 function literal used in math
-// Hint: 2-5 math functions require parentheses: `mat()`
+// Error: 2-5 this does not call the `mat` function
+// Hint: 2-5 to call the `mat` function, write `mat()`
 $mat ()$
 
 --- math-func-literal-brackets paged ---
-// Error: 2-5 function literal used in math
-// Hint: 2-5 math functions require parentheses: `mat()`
+// Error: 2-5 this does not call the `mat` function
+// Hint: 2-5 to call the `mat` function, write `mat()`
 $mat[]$
 
 --- math-func-literal-field paged ---
-// Error: 3-11 function literal used in math
-// Hint: 3-11 math functions require parentheses: `std.text()`
+// Error: 3-11 this does not call the `std.text` function
+// Hint: 3-11 to call the `std.text` function, write `std.text()`
 $ std.text () $
 
 --- math-func-literal-delimited paged ---
-// Error: 3-5 function literal used in math
-// Hint: 3-5 math functions require parentheses: `lr()`
+// Error: 3-5 this does not call the `lr` function
+// Hint: 3-5 to call the `lr` function, write `lr()`
 $(lr ())$
 
 --- math-func-literal-attach paged ---
-// Error: 4-10 function literal used in math
-// Hint: 4-10 math functions require parentheses: `attach()`
+// Error: 4-10 this does not call the `attach` function
+// Hint: 4-10 to call the `attach` function, write `attach()`
 $a_attach (b, t: c)$
 
 --- math-func-literal-frac paged ---
-// Error: 7-11 function literal used in math
-// Hint: 7-11 math functions require parentheses: `sqrt()`
+// Error: 7-11 this does not call the `sqrt` function
+// Hint: 7-11 to call the `sqrt` function, write `sqrt()`
 $ 1 / sqrt (2) $
 
 --- math-func-literal-root paged ---
-// Error: 4-8 function literal used in math
-// Hint: 4-8 math functions require parentheses: `frac()`
+// Error: 4-8 this does not call the `frac` function
+// Hint: 4-8 to call the `frac` function, write `frac()`
 $ √frac (1,2) $

@@ -266,6 +266,8 @@ fn math_expr_prec(p: &mut Parser, min_prec: u8, stop_set: SyntaxSet) {
             p.eat();
             // Parse a function call for an identifier or field access.
             if MATH_FUNC_PREC >= min_prec && p.directly_at(SyntaxKind::LeftParen) {
+                // TODO: This will error at runtime if the identifier isn't a
+                // function, but we're underneath a fraction.
                 math_args(p);
                 p.wrap(m, SyntaxKind::MathCall);
                 continuable = false;
@@ -320,6 +322,9 @@ fn math_expr_prec(p: &mut Parser, min_prec: u8, stop_set: SyntaxSet) {
         && !p.had_trivia()
         && p.at_set(syntax_set!(LeftBrace, LeftParen))
     {
+        if p.current_text() == "[" {
+            // TODO: Setup the error for `Pr[x]/2`: notation is ambiguous.
+        }
         math_delimited(p);
         p.wrap(m, SyntaxKind::Math);
     }
@@ -394,10 +399,10 @@ fn math_op(
 ) -> Option<(SyntaxKind, Option<ast::Assoc>, u8)> {
     let op = match kind {
         SyntaxKind::Slash => (SyntaxKind::MathFrac, Some(ast::Assoc::Left), 1),
-        SyntaxKind::Underscore => (SyntaxKind::MathAttach, Some(ast::Assoc::Right), 2),
-        SyntaxKind::Hat => (SyntaxKind::MathAttach, Some(ast::Assoc::Right), 2),
-        SyntaxKind::MathPrimes if !had_trivia => (SyntaxKind::MathAttach, None, 2),
-        SyntaxKind::Bang if !had_trivia => (SyntaxKind::Math, None, 3),
+        SyntaxKind::Underscore => (SyntaxKind::MathAttach, Some(ast::Assoc::Right), 3),
+        SyntaxKind::Hat => (SyntaxKind::MathAttach, Some(ast::Assoc::Right), 3),
+        SyntaxKind::MathPrimes if !had_trivia => (SyntaxKind::MathAttach, None, 3),
+        SyntaxKind::Bang if !had_trivia => (SyntaxKind::Math, None, 4),
         _ => return None,
     };
     Some(op)

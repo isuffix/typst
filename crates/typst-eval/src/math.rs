@@ -72,8 +72,9 @@ pub(super) fn eval_ident_wrapper(
         let func = wrapper.to_untyped().clone().into_text();
         bail!(
             wrapper.span(),
-            "function literal used in math";
-            hint: "math functions require parentheses: `{func}()`"
+            "this does not call the `{func}` function";
+            hint: "to call the `{func}` function, write `{func}()`"
+            // TODO: Hint to remove a space if followed by non-direct parens: `abs ()`.
         );
     }
     Ok(value)

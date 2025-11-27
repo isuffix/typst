@@ -6,14 +6,14 @@ use typst_library::diag::{
 };
 use typst_library::engine::{Engine, Sink, Traced};
 use typst_library::foundations::{
-    Arg, Args, Binding, Capturer, Closure, ClosureNode, Content, Context, Func,
-    NativeElement, Scope, Scopes, SymbolElem, Value,
+    Arg, Args, Binding, Capturer, Closure, ClosureNode, Context, Func, NativeElement,
+    Scope, Scopes, SequenceElem, SymbolElem, Value,
 };
 use typst_library::introspection::Introspector;
 use typst_library::math::LrElem;
 use typst_library::routines::Routines;
 use typst_syntax::ast::{self, AstNode, Ident, MathAccess};
-use typst_syntax::{Span, Spanned, SyntaxNode};
+use typst_syntax::{Span, Spanned, SyntaxKind, SyntaxNode};
 use typst_utils::{LazyHash, Protected};
 
 use crate::{
@@ -50,7 +50,9 @@ impl Eval for ast::FuncCall<'_> {
             (callee.eval(vm)?, args.eval(vm)?.spanned(span))
         };
 
-        let func = callee_value.clone().cast::<Func>()
+        let func = callee_value
+            .clone()
+            .cast::<Func>()
             .map_err(|err| hint_if_shadowed_std(vm, callee, err))
             .at(callee_span)?;
 
@@ -85,49 +87,34 @@ impl Eval for ast::MathCall<'_> {
         vm.engine.route.check_call_depth().at(span)?;
 
         // Try to evaluate as a call to an associated function or field.
-        let (callee_value, args_value) = match callee.inner() {
+        let (func, args_value) = match callee.inner() {
             ast::MathAccess::FieldAccess(access) => {
                 let target = access.target();
                 let field = access.field();
-                match eval_field_call(target, field, args, span, vm)? {
-                    FieldCall::Normal(callee, args) => {
-                        if vm.inspected == Some(callee_span) {
-                            vm.trace(callee.clone());
+                let (callee_value, args_value) =
+                    match eval_field_call(target, field, args, span, vm)? {
+                        FieldCall::Normal(callee, args) => {
+                            if vm.inspected == Some(callee_span) {
+                                vm.trace(callee.clone());
+                            }
+                            (callee, args)
                         }
-                        (callee, args)
-                    }
-                    FieldCall::Resolved(value) => return Ok(value),
+                        FieldCall::Resolved(value) => return Ok(value),
+                    };
+                match callee_value.clone().cast::<Func>() {
+                    Err(_) => return wrap_args_in_math(vm, callee, callee_value, args),
+                    Ok(func) => (func.spanned(callee_span), args_value),
                 }
             }
             ast::MathAccess::Ident(ident) => {
                 // Function call order: we evaluate the callee before the arguments.
-                (super::code::eval_ident(vm, ident, true)?, args.eval(vm)?.spanned(span))
+                let callee_value = super::code::eval_ident(vm, ident, true)?;
+                match callee_value.clone().cast::<Func>() {
+                    Err(_) => return wrap_args_in_math(vm, callee, callee_value, args),
+                    Ok(func) => (func.spanned(callee_span), args.eval(vm)?.spanned(span)),
+                }
             }
         };
-
-        let func_result = callee_value.clone().cast::<Func>();
-
-        if func_result.is_err() {
-            let trailing_comma = args
-                .to_untyped()
-                .children()
-                .rev()
-                .skip(1)
-                .find(|n| !n.kind().is_trivia())
-                .is_some_and(|n| n.kind() == typst_syntax::SyntaxKind::Comma);
-            return wrap_args_in_math(
-                callee_value,
-                callee_span,
-                args_value,
-                trailing_comma,
-            );
-        }
-
-        let func = func_result
-            .map_err(|err| {
-                hint_if_shadowed_std(vm, ast::Expr::MathIdentWrapper(callee), err)
-            })
-            .at(callee_span)?;
 
         let point = || Tracepoint::Call(func.name().map(Into::into));
         let f = || {
@@ -551,29 +538,58 @@ fn missing_field_call_error(target: Value, field: Ident) -> SourceDiagnostic {
 
 /// For non-functions in math, we wrap the arguments in parentheses.
 fn wrap_args_in_math(
-    callee: Value,
-    callee_span: Span,
-    mut args: Args,
-    trailing_comma: bool,
+    vm: &mut Vm,
+    callee: ast::MathIdentWrapper,
+    callee_value: Value,
+    args: ast::MathArgs,
 ) -> SourceResult<Value> {
-    let mut body = Content::empty();
-    for (i, arg) in args.all::<Content>()?.into_iter().enumerate() {
-        if i > 0 {
-            body += SymbolElem::packed(',');
+    let mut errors: EcoVec<SourceDiagnostic> = EcoVec::new();
+    let mut body = Vec::new();
+    for child in args.to_untyped().children() {
+        match child.cast::<ast::Arg>() {
+            None => {
+                let c = match child.kind() {
+                    SyntaxKind::Comma => ',',
+                    SyntaxKind::Semicolon => ';',
+                    SyntaxKind::LeftParen => '(',
+                    SyntaxKind::RightParen => ')',
+                    _ => continue,
+                };
+                body.push(SymbolElem::packed(c).spanned(child.span()));
+            }
+            Some(ast::Arg::Pos(expr)) => {
+                body.push(expr.eval(vm)?.display().spanned(child.span()))
+            }
+            Some(ast::Arg::Named(_)) => {
+                let name = callee.to_untyped().clone().into_text();
+                let fixed = child.clone().into_text().replacen(":", "\\:", 1);
+                errors.push(error!(
+                    child.span(),
+                    "named arguments can only be used with functions";
+                    hint: "`{name}` is not a function";
+                    hint: "try escaping the colon: `{fixed}`",
+                ));
+            }
+            Some(ast::Arg::Spread(_)) => {
+                let name = callee.to_untyped().clone().into_text();
+                let fixed = child.clone().into_text().replacen("..", ".. ", 1);
+                errors.push(error!(
+                    child.span(),
+                    "spread arguments can only be used with functions";
+                    hint: "`{name}` is not a function";
+                    hint: "try adding a space: `{fixed}`",
+                ));
+            }
         }
-        body += arg;
     }
-    if trailing_comma {
-        body += SymbolElem::packed(',');
-    }
-
-    let formatted = callee.display().spanned(callee_span)
-        + LrElem::new(SymbolElem::packed('(') + body + SymbolElem::packed(')'))
+    if errors.is_empty() {
+        let parens = LrElem::new(SequenceElem::new(body).pack())
             .pack()
-            .spanned(args.span);
-
-    args.finish()?;
-    Ok(Value::Content(formatted))
+            .spanned(args.span());
+        Ok(Value::Content(callee_value.display().spanned(callee.span()) + parens))
+    } else {
+        Err(errors)
+    }
 }
 
 /// A visitor that determines which variables to capture for a closure.
