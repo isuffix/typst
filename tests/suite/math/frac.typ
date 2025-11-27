@@ -74,10 +74,7 @@ $
 #assert(not "℘".contains(alphabetic))
 #assert("℘".contains(xid-start))
 #let eqn = $ ℘()/2  $
-#test(repr(eqn.body), "frac(
-  num: sequence([℘], lr(body: sequence([(], [)]))),
-  denom: [2],
-)")
+#test(repr(eqn.body), "sequence([℘], frac(num: [], denom: [2]))")
 
 #assert("ⓟ".contains(alphabetic))
 #assert(not "ⓟ".contains(xid-start))
