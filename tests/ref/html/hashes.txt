@@ -221,11 +221,11 @@ bebc68786d017951ea64ce5ff9b9740d math-font-features-switch
 7686e9abe668f5d2a7d70bae29a3f8e2 math-frac-horizontal
 432c1905f885ca757cf581044bd8da0f math-frac-horizontal-explicit
 7e28e7052fa35ac4d6f3a58e764bf9a1 math-frac-horizontal-nonparen-brackets
-72509d19634139de30a01a1cb5a128ae math-frac-implicit-func
+e71ab879d083a39d4d39d96f83791729 math-frac-implicit-func
 13367af8a505ac1b43d01b3144005ac3 math-frac-large
 2374e6e7222591ac9da550e53e42a562 math-frac-line-fill-stroke
 f276fd69e166a905f6cc1e94262bfa71 math-frac-paren-removal
-71ff317515871c68e3f288ab38c1c4a3 math-frac-precedence
+d69dfd115dc0a7733cb0db0e2a649ac2 math-frac-precedence
 8bbe7fd95e70ba8cfd3b792ef4d25200 math-frac-tan-sin-cos
 dfb97c7b4e6d90a5c7ab09ff11348795 math-func-literal-arg
 02d607967cc6a627fade68d9db59cfca math-glyph-show-rule
@@ -327,7 +327,7 @@ a11eac3d0f1a78d17c30efda44079036 math-root-precomposed
 62e5163cb1704c233dd18290257488ac math-root-show-rule-4
 b7f3831500e19a086c8597826d2bb08e math-root-show-rule-5
 773e80456023bdff77c6d45c590dc54b math-root-syntax
-c7630afe204e0855c9fa00a115d79467 math-root-syntax-prec
+95c99a42513abb4b81aec9ccf4d2de89 math-root-syntax-prec
 ee1be869507746fa35b75e756ae5dc5e math-shorthands-noncontinuable
 5375578d3401ae8076342f10381807c9 math-size
 8df84c24e009d02d326429e9bc04af29 math-size-resolve

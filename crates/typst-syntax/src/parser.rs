@@ -274,19 +274,16 @@ fn math_expr_prec(p: &mut Parser, min_prec: u8, stop_set: SyntaxSet) {
     }
 
     let m = p.marker();
-    let mut continuable = false;
     match p.current() {
         SyntaxKind::Hash => embedded_code_expr(p),
 
         // The lexer manages creating full MathFieldAccess nodes if needed.
         SyntaxKind::MathIdent | SyntaxKind::MathFieldAccess => {
-            continuable = true;
             p.eat();
             // Parse a function call for an identifier or field access.
             if MATH_FUNC_PREC >= min_prec && p.directly_at(SyntaxKind::LeftParen) {
                 math_args(p);
                 p.wrap(m, SyntaxKind::MathCall);
-                continuable = false;
             }
         }
 
@@ -308,11 +305,9 @@ fn math_expr_prec(p: &mut Parser, min_prec: u8, stop_set: SyntaxSet) {
             p.convert_and_eat(SyntaxKind::MathText);
         }
         SyntaxKind::MathText => {
-            continuable = is_math_alphabetic(p.current_text());
             p.eat();
         }
         SyntaxKind::MathPrimes | SyntaxKind::Escape | SyntaxKind::Str => {
-            continuable = true;
             p.eat();
         }
         SyntaxKind::MathShorthand => p.eat(),
@@ -338,18 +333,6 @@ fn math_expr_prec(p: &mut Parser, min_prec: u8, stop_set: SyntaxSet) {
             unreachable!("handled above by `math_exprs`")
         }
         _ => unreachable!("the lexer doesn't produce any other syntax kinds in math"),
-    }
-
-    // Maybe recognize an implicit function call: a 'continuable' token followed
-    // by delimiters will group as one with the precedence of a normal function.
-    // E.g. `a(b)/c` parses as `(a(b))/c` when `a` is continuable.
-    if continuable
-        && MATH_FUNC_PREC >= min_prec
-        && !p.had_trivia()
-        && p.at_set(syntax_set!(LeftBrace, LeftParen))
-    {
-        math_delimited(p, min_prec);
-        p.wrap(m, SyntaxKind::Math);
     }
 
     // Parse infix and postfix operators. The general form of a parsed op looks
@@ -433,7 +416,7 @@ fn math_op(
 
 /// Whether text counts as alphabetic in math. For the `Text` and `MathText`
 /// kinds, this causes them to group with parens as an implicit function call.
-fn is_math_alphabetic(text: &str) -> bool {
+fn _is_math_alphabetic(text: &str) -> bool {
     if let Some((0, c)) = text.char_indices().next_back() {
         // Just a single character.
         c.is_alphabetic() || default_math_class(c) == Some(MathClass::Alphabetic)
