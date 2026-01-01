@@ -1129,7 +1129,6 @@ a3a41f5f72627454ffd1b5c2f3069381 math-lr-size
 a3b131bf085a115a3f02e5c401a533ae math-lr-sym-call
 9231fb83f190ed605b5c7aed9ee4d5c6 math-lr-sym-call-size
 0b08f4d5fa91d186371b426520947aa3 math-lr-symbol-unmatched
-1260635d2e9e6a9ddb254074fea16ace math-lr-unbalanced
 aca32c6ff7c84315639a4e67608a730b math-lr-unmatched
 e3871c5475987d2d3c4cf1c9df4614a1 math-lr-unparen
 496c20ebebc8727357971cf4f27f50fb math-lr-weak-spacing
