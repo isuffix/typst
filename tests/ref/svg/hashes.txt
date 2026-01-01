@@ -1144,7 +1144,6 @@ dcae63d7280adbd3a8cb7cf0305b1430 math-lr-multiline-trailing
 e368205217c26cc938da69f7095ad93b math-lr-sym-call
 7288762c75812219e2b14d51f4e5d3f7 math-lr-sym-call-size
 a3e47e0b938c43ac5f939e9cff1fb988 math-lr-symbol-unmatched
-e29f504563ae7801753783b18492f954 math-lr-unbalanced
 2d621f634f3005aa570a1d04d7d3e875 math-lr-unmatched
 1b0d8170b1ed95c5cefdf956930982c4 math-lr-unparen
 a2c8d2477b5469ff6f714683143bc079 math-lr-weak-spacing
