@@ -236,10 +236,32 @@ $ a _ b (d _) (d'_ ) (_ c) $
 // Error: 10 expected an expression to the left of the operator
 $ a_/b a/^b $
 
---- math-attach-double-chain paged html ---
-// Test attachment chain grouping with doubled operators and primes
+--- math-attach-chain-interior-parens paged ---
+// Test chained attachments with interior parentheses
+$ mat(delim: #none,
+  a_(1)_2^3, b^(1)^2_3, c_(1)^2^3, d^(1)_2_3;
+  a_1_(2)^3, b^1^(2)_3, c_1^(2)^3, d^1_(2)_3;
+) $
+
+--- math-attach-chain-one-prime paged html ---
+// Test attachment chain grouping with doubled operators and a single prime
 $ mat(delim: #none,
   a_1_2^3,  b^1^2_3,  c_1^2^3,  d^1_2_3;
   a'_1_2^3, b'^1^2_3, c'_1^2^3, d'^1_2_3;
   a_1'_2^3, b^1'^2_3, c_1'^2^3, d^1'_2_3;
+  a_1_2'^3, b^1^2'_3, c_1^2'^3, d^1_2'_3;
+  a_1_2^3', b^1^2_3', c_1^2^3', d^1_2_3';
+) $
+
+--- math-attach-chain-two-primes paged html ---
+// Test attachment chain grouping with two primes at different positions
+$ mat(delim: #none,
+  a'_1'_2^3,  b'^1'^2_3,  c'_1'^2^3,  d'^1'_2_3;
+  a'_1_2'^3,  b'^1^2'_3,  c'_1^2'^3,  d'^1_2'_3;
+  a'_1_2^3',  b'^1^2_3',  c'_1^2^3',  d'^1_2_3';
+  ;
+  a_1'_2'^3,  b^1'^2'_3,  c_1'^2'^3,  d^1'_2'_3;
+  a_1'_2^3',  b^1'^2_3',  c_1'^2^3',  d^1'_2_3';
+  ;
+  a_1_2'^3',  b^1^2'_3',  c_1^2'^3',  d^1_2'_3';
 ) $

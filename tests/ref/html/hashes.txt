@@ -141,9 +141,10 @@ f34f26f141ff57d6703341f8da6792a1 math-align-lines-mixed
 1584734ea5d640715dc410d8e096a502 math-align-wider-first-column
 4d9eb2ed89334491148e7152235b6023 math-at-par-end
 b256c73f7cdff1a0f2df5e83021af52e math-at-par-start
+cb637aba52af3c2d9954cc8f4a9a8fe0 math-attach-chain-one-prime
+890d71f3ee6bed11ace37fc184768732 math-attach-chain-two-primes
 1d08ca18e739d41ec8e1e7f385947e71 math-attach-default-placement
 873e3a483425cb47ec6be0ae1cf4b813 math-attach-descender-collision
-1b845acb06d61b906d2d3f001038a6f8 math-attach-double-chain
 735e6141e4534b4c457d8f2c469f2a65 math-attach-followed-by-func-call
 1223ccdb0bed58b83db5ea20d4aa0620 math-attach-force-scripts-and-limits
 e284fd83844124102a4b5117a70a285f math-attach-high
@@ -216,6 +217,7 @@ bebc68786d017951ea64ce5ff9b9740d math-font-features-switch
 88b2d977badfc9d08599c815d79fe5a2 math-font-switch
 8b4d3db0e2ac877bd36efbf703ddb4f4 math-frac-associativity
 94c2711a24a8ae15599e0e676ff02298 math-frac-baseline
+ce943bc4274f70cd31906e8d09e0bd02 math-frac-factorials
 6a4b004301dc2a6644a183ec14b41352 math-frac-gap
 7686e9abe668f5d2a7d70bae29a3f8e2 math-frac-horizontal
 432c1905f885ca757cf581044bd8da0f math-frac-horizontal-explicit
@@ -224,7 +226,7 @@ e71ab879d083a39d4d39d96f83791729 math-frac-implicit-func
 13367af8a505ac1b43d01b3144005ac3 math-frac-large
 2374e6e7222591ac9da550e53e42a562 math-frac-line-fill-stroke
 f276fd69e166a905f6cc1e94262bfa71 math-frac-paren-removal
-d69dfd115dc0a7733cb0db0e2a649ac2 math-frac-precedence
+4766c20df0bf36b007d8eb60ff3a83ef math-frac-precedence
 8bbe7fd95e70ba8cfd3b792ef4d25200 math-frac-tan-sin-cos
 dfb97c7b4e6d90a5c7ab09ff11348795 math-func-literal-arg
 02d607967cc6a627fade68d9db59cfca math-glyph-show-rule
@@ -300,9 +302,12 @@ be6fdcc59c937cd93c3e54f5fb25514e math-optical-size-frac-script-script
 c2b164b3cd0fc8bd26e33f69b894da49 math-optical-size-primes
 5dc9e9040250c35f73996b89dd88b203 math-primes
 56addd6cc9def6f30e24dc2f5c18b6c8 math-primes-after-code-expr
-b949b7b0f9cbe3ec2742f50325cd6009 math-primes-attach
+2a6d09a91879bad1f3d31dcd65479bac math-primes-after-subscript
+46a3a19598f2955612456d3759b6ab6a math-primes-after-superscript
+d1bf3b4f5aed4df1ba51ce7dd30dcaf6 math-primes-ambiguous-base-and-subscript
+2b9f1871c385dd9275546c6cce99272e math-primes-attach
 ea3851e281da3beb0d65f7393a44f165 math-primes-complex
-6d43d68d53cf83fcba383347333499df math-primes-factorial
+2f9110a7c55e6a39e8db0693cb72ba2a math-primes-factorial
 dd1b7c0c6f3d059c7ff6e2cf84d5a772 math-primes-limits
 23d187f8756edf4acd1e00475a5b9a1c math-primes-merge-inner-prime
 b18768d480641954297ca8f528bba007 math-primes-merge-top

@@ -3,8 +3,18 @@
 $a'$, $a'''_b$, $'$, $'''''''$
 
 --- math-primes-spaces paged html ---
-// Test spaces between
+// Test spaces between primes
 $a' ' '$, $' ' '$, $a' '/b$
+
+--- math-primes-after-subscript paged html ---
+// Test prime attachment after subscripts
+$ f_n'   &quad g_(pi k)'   &quad h_l_m'   \
+  f_(n') &quad g_((pi k)') &quad h_l_(m') $
+
+--- math-primes-after-superscript paged html ---
+// Test prime attachment after superscripts
+$ f^n'   &quad g^(pi k)'   &quad h^l^m'   \
+  f^(n') &quad g^((pi k)') &quad h^l^(m') $
 
 --- math-primes-complex paged html ---
 // Test complex prime combinations
@@ -18,15 +28,23 @@ $f_n'^a'$, $f^a'_n'$
 
 $ ∑'_S' $
 
+--- math-primes-ambiguous-base-and-subscript paged html ---
+// Primed expressions where the base of the prime is ambiguous.
+$f'_x' f'^g_x' e^f'_x' x_1'''''^2$
+
 --- math-primes-attach paged html ---
 // Test attaching primes only
-$a' = a^', a_', a_'''^''^'$
+$a', b^', c_', d_'''^''^' e^''''''_'''_'$
 
 --- math-primes-factorial paged html ---
 // Test edge cases with factorials and primes
 $
-  n'!' quad n' !' quad a_n'!'^b \
-  n!'! quad n! '! quad a_n!'!^b \
+  n'!' &quad k' !' &quad l_a'!'^b \
+  n!'! &quad k! '! &quad l_a!'!^b \
+$
+$
+  a^b'^c!'^d'!' &quad a^b'!^c!'^d'!' \
+  e_f'_g!'_h'!' &quad e_f'!_g!'_h'!' \
 $
 
 --- math-primes-scripts paged html ---
