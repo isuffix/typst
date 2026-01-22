@@ -443,3 +443,7 @@ Looks at the @quadratic formula.
 #set text(stroke: green + 0.5pt)
 
 A $B^2$ $ grave(C)' $
+
+--- math-equation-unclosed eval ---
+// Error: 1-2 unclosed delimiter
+$a

@@ -13,11 +13,6 @@ $ underline(f' : NN -> RR) \
     1 - 0 thick &...,
   ) $
 
---- math-shorthands-noncontinuable paged html ---
-// Test that shorthands are not continuable.
-$ x >=(y) / z \
-  x >= (y) / z $
-
 --- math-common-symbols paged html ---
 // Test common symbols.
 $ dot \ dots \ ast \ tilde \ star $
@@ -43,6 +38,3 @@ $floor(phi.alt. )$
 // Numbers should parse the same regardless of number of characters.
 $1/2(x)$ vs. $1/10(x)$
 
---- math-unclosed eval ---
-// Error: 1-2 unclosed delimiter
-$a
