@@ -1253,30 +1253,48 @@ impl<'a> MathAttach<'a> {
         self.0.cast_first()
     }
 
-    /// The bottom attachment.
-    pub fn bottom(self) -> Option<Expr<'a>> {
+    /// The attachments, can have arbitrarily many on one base.
+    pub fn attachments(self) -> impl Iterator<Item = Attachment<'a>> {
+        /// The previous attachment operator.
+        enum PrevOp {
+            Underscore,
+            Hat,
+            None,
+        }
+        let mut op = PrevOp::None;
         self.0
             .children()
-            .skip_while(|node| !matches!(node.kind(), SyntaxKind::Underscore))
-            .find_map(SyntaxNode::cast)
+            .skip(1) // Skip the base expression.
+            .filter_map(move |node| match node.kind() {
+                SyntaxKind::Underscore => {
+                    op = PrevOp::Underscore;
+                    Option::None
+                }
+                SyntaxKind::Hat => {
+                    op = PrevOp::Hat;
+                    Option::None
+                }
+                SyntaxKind::MathPrimes if matches!(op, PrevOp::None) => {
+                    Some(Attachment::Primes(MathPrimes(node)))
+                }
+                _ => {
+                    let expr: Expr = node.cast()?;
+                    match std::mem::replace(&mut op, PrevOp::None) {
+                        PrevOp::Underscore => Some(Attachment::Bot(expr)),
+                        PrevOp::Hat => Some(Attachment::Top(expr)),
+                        PrevOp::None => Option::None,
+                    }
+                }
+            })
     }
+}
 
-    /// The top attachment.
-    pub fn top(self) -> Option<Expr<'a>> {
-        self.0
-            .children()
-            .skip_while(|node| !matches!(node.kind(), SyntaxKind::Hat))
-            .find_map(SyntaxNode::cast)
-    }
-
-    /// Extract attached primes if present.
-    pub fn primes(self) -> Option<MathPrimes<'a>> {
-        self.0
-            .children()
-            .skip_while(|node| node.cast::<Expr<'_>>().is_none())
-            .nth(1)
-            .and_then(|n| n.cast())
-    }
+/// An attachment in math.
+#[derive(Debug, Copy, Clone, Hash)]
+pub enum Attachment<'a> {
+    Bot(Expr<'a>),
+    Top(Expr<'a>),
+    Primes(MathPrimes<'a>),
 }
 
 node! {

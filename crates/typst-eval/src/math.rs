@@ -155,24 +155,86 @@ impl Eval for ast::MathAttach<'_> {
     type Output = Content;
 
     fn eval(self, vm: &mut Vm) -> SourceResult<Self::Output> {
+        /// Replaces an attached piece of content in-place with an `AttachElem`
+        /// containing that content as the base.
+        ///
+        /// This allows us to add chained attachments like `a_1_2_3` as
+        /// right-associative `a_(1_(2_(3)))` while iterating from left to
+        /// right.
+        fn replace_as_attach(attached: &mut Option<Content>) -> &mut AttachElem {
+            let base = attached.take().unwrap();
+            let elem = AttachElem::new(base).pack();
+            attached.insert(elem).to_packed_mut().unwrap()
+        }
+
         let base = self.base().eval_display(vm, Some(Operand::AttachBase(self)))?;
-        let mut elem = AttachElem::new(base);
 
-        if let Some(expr) = self.top() {
-            elem.t.set(Some(expr.eval_display(vm, None)?));
+        // Prepare mutable pointers to attachment positions of the base.
+        let mut attach = AttachElem::new(base);
+        let mut b = attach.b.as_option_mut();
+        // `t` and `tr_primes` must always refer to the same attachment.
+        let mut t = attach.t.as_option_mut();
+        let mut tr_primes = attach.tr.as_option_mut();
+
+        for attachment in self.attachments() {
+            match attachment {
+                ast::Attachment::Bot(expr) => {
+                    if let Some(outer_b) = b {
+                        let bot = replace_as_attach(outer_b);
+                        b = bot.b.as_option_mut();
+                    }
+                    *b = Some(Some(expr.eval_display(vm, None)?));
+                }
+                ast::Attachment::Top(expr) => {
+                    // we only check for a present `t` here, not `tr_primes`
+                    // since it's fine to have both on the same attachment so
+                    // long as `tr_primes` came first. Attachments try to merge
+                    // `tr` primes and `t` as `tr + t` in the math IR, but
+                    // adding `tr + t` is only the correct order if the `tr`
+                    // primes came first.
+                    if let Some(outer_t) = t {
+                        let top = replace_as_attach(outer_t);
+                        // But we do update `tr_primes` if we replace `t` so
+                        // they always refer to the same attachment.
+                        t = top.t.as_option_mut();
+                        tr_primes = top.tr.as_option_mut();
+                    }
+                    *t = Some(Some(expr.eval_display(vm, None)?));
+                }
+                ast::Attachment::Primes(primes) => {
+                    let count = primes.count();
+                    if let (None, Some(Some(prev_primes))) = (&mut t, &mut tr_primes) {
+                        // Merge adjacent primes into a single `PrimesElem` with
+                        // the span of the initial primes. Primes can only be
+                        // adjacent in this way if separated by bottom
+                        // attachments, like `$a'_b''_c'$`.
+                        let primes_elem =
+                            prev_primes.to_packed_mut::<PrimesElem>().unwrap();
+                        primes_elem.count += count;
+                    } else {
+                        // We attach primes to `tr`, but still overwrite any
+                        // present `t` so that we never add `tr_primes` when a
+                        // `t` came first, as attachments would swap their order
+                        // when trying to merge `tr` primes and `t` as `tr + t`
+                        // in the math IR.
+                        if let Some(outer_t) = t {
+                            let top = replace_as_attach(outer_t);
+                            // `t` and `tr_primes` must always refer to the same
+                            // attachment.
+                            t = top.t.as_option_mut();
+                            tr_primes = top.tr.as_option_mut();
+                        } else {
+                            assert!(tr_primes.is_none());
+                        }
+                        *tr_primes = Some(Some(
+                            PrimesElem::new(count).pack().spanned(primes.span()),
+                        ));
+                    }
+                }
+            }
         }
 
-        // Always attach primes in scripts style (not limits style),
-        // i.e. at the top-right corner.
-        if let Some(primes) = self.primes() {
-            elem.tr.set(Some(primes.eval(vm)?));
-        }
-
-        if let Some(expr) = self.bottom() {
-            elem.b.set(Some(expr.eval_display(vm, None)?));
-        }
-
-        Ok(elem.pack())
+        Ok(attach.pack())
     }
 }
 

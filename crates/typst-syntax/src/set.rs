@@ -22,14 +22,6 @@ impl SyntaxSet {
         Self(self.0 | bit(kind))
     }
 
-    /// Remove a syntax kind from the set. Does nothing if not present.
-    ///
-    /// You can only remove kinds with discriminator < 128.
-    pub const fn remove(self, kind: SyntaxKind) -> Self {
-        assert!((kind as u8) < BITS);
-        Self(self.0 & !bit(kind))
-    }
-
     /// Combine two syntax sets.
     pub const fn union(self, other: Self) -> Self {
         Self(self.0 | other.0)

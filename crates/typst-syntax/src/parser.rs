@@ -335,23 +335,24 @@ fn math_expr_prec(p: &mut Parser, min_prec: u8, stop_set: SyntaxSet) {
         _ => unreachable!("the lexer doesn't produce any other syntax kinds in math"),
     }
 
+    // The wrapper kind for an infix/postfix operator.
+    let mut op_wrapper = None;
+
     // Parse infix and postfix operators. The general form of a parsed op looks
     // like: `MathAttach[ MathText("x"), Hat("^"), MathText("2") ]`.
-    while !p.at_set(stop_set)
-        && let op_kind = p.current()
+    while let op_kind = p.current()
         && let had_trivia = p.had_trivia()
         && let Some((wrapper, infix_assoc, prec)) = math_op(op_kind, had_trivia)
         && prec >= min_prec
     {
-        // Prepare a chaining set for the attachment operators.
-        let mut chain_set = if wrapper == SyntaxKind::MathAttach {
-            // Hat can chain with Underscore, Underscore can chain with Hat, and
-            // Prime can chain with either (but prime can't interrupt a chain,
-            // see below).
-            syntax_set!(Hat, Underscore).remove(op_kind)
-        } else {
-            syntax_set!()
-        };
+        // Yield any previous operator to the left-operand of the new operator.
+        if let Some(lhs_wrapper) = op_wrapper.replace(wrapper)
+            // Unless we're in an attachment chain (we only wrap once in total).
+            && !(lhs_wrapper == SyntaxKind::MathAttach && wrapper == SyntaxKind::MathAttach)
+        {
+            // Finish the operator by wrapping from its left operand.
+            p.wrap(m, lhs_wrapper);
+        }
 
         // Eat the operator itself.
         if op_kind == SyntaxKind::Bang {
@@ -361,10 +362,7 @@ fn math_expr_prec(p: &mut Parser, min_prec: u8, stop_set: SyntaxSet) {
         }
 
         // Slash is the only operator that removes parens from its left operand.
-        if wrapper == SyntaxKind::MathFrac
-            // Hack to remove parens in `a_(b)_c` and such
-            || (min_prec == 4 && syntax_set!(Hat, Underscore).contains(op_kind))
-        {
+        if op_kind == SyntaxKind::Slash {
             math_unparen(p, m);
         }
 
@@ -375,24 +373,13 @@ fn math_expr_prec(p: &mut Parser, min_prec: u8, stop_set: SyntaxSet) {
                 ast::Assoc::Right => prec,
             };
             let m_rhs = p.marker();
-            math_expr_prec(p, prec, stop_set.union(chain_set));
+            math_expr_prec(p, prec, stop_set);
             math_unparen(p, m_rhs);
         }
+    }
 
-        // Avoid interrupting a chain when initially parsing a prime.
-        // For `a^b'_c^d` the grouping is `(a^(b')_c)^d` and not `a^(b'_c^d)`.
-        if !(op_kind == SyntaxKind::MathPrimes && p.at_set(stop_set)) {
-            // Parse chained attachment operators as a single attachment.
-            while p.at_set(chain_set) {
-                chain_set = chain_set.remove(p.current());
-                p.eat();
-                let m_chain_rhs = p.marker();
-                math_expr_prec(p, prec, stop_set.union(chain_set));
-                math_unparen(p, m_chain_rhs);
-            }
-        }
-
-        // Finish the operator by wrapping from its left operand.
+    // Finish an infix/postfix operator by wrapping from its left operand.
+    if let Some(wrapper) = op_wrapper {
         p.wrap(m, wrapper);
     }
 }
@@ -408,8 +395,13 @@ fn math_op(
 ) -> Option<(SyntaxKind, Option<ast::Assoc>, u8)> {
     let op = match kind {
         SyntaxKind::Slash => (SyntaxKind::MathFrac, Some(ast::Assoc::Left), 1),
-        SyntaxKind::Underscore => (SyntaxKind::MathAttach, Some(ast::Assoc::Right), 4),
-        SyntaxKind::Hat => (SyntaxKind::MathAttach, Some(ast::Assoc::Right), 4),
+        // `Underscore` and `Hat` use left-associativity so further attachment
+        // operators chain with the first to form a flat list, but attachment
+        // chains are treated as right-associative during evaluation. For
+        // example, `a_1_2_3` is parsed as a list like `[a, _, 1, _, 2, _, 3]`,
+        // but will evaluate like `a_(1_(2_(3)))`.
+        SyntaxKind::Underscore => (SyntaxKind::MathAttach, Some(ast::Assoc::Left), 4),
+        SyntaxKind::Hat => (SyntaxKind::MathAttach, Some(ast::Assoc::Left), 4),
         SyntaxKind::MathPrimes if !had_trivia => (SyntaxKind::MathAttach, None, 4),
         SyntaxKind::Bang if !had_trivia => (SyntaxKind::Math, None, 3),
         _ => return None,
