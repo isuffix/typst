@@ -47,13 +47,23 @@ $ tan(x) = (sin(x)) / (cos(x)) \
 $ tan(x) = sin(x) / cos(x) $
 
 --- math-frac-precedence paged html ---
-// Test precedence.
-$ a_1/b_2, 1/f(x), (zeta(x))/2, "foo"[|x|]/2 \
+// Test fraction operator precedence.
+$
+  a_1/b_2, 1/f(x), (zeta(x))/2, "foo"[|x|]/2 \
   1.2/3.7, 2.3^3.4 \
   f [x]/2, phi [x]/2 \
   +[x]/2, 1(x)/2, 2[x]/2, 🏳️‍🌈[x]/2 \
   (a)b/2, b(a)[b]/2 \
-  n!/2, 5!/2, n !/2, 1/n!, 1/5! $
+$
+
+--- math-frac-factorials paged html ---
+// Test fraction precedence with factorials.
+$
+  Delta!/1 quad 1.5!/2 quad 3/"F"'! quad 4/~>! \
+  n !/k ! quad "nope" !/"kope" ! \
+  (3n)!/(2k+1)! quad (3n) !/(2k+1) ! \
+  x!!/y!!!!/z!! quad (x ! !)/(y ! ! ! !)/(z ! !) \
+$
 
 --- math-frac-implicit-func paged html ---
 // Test other precedence interactions with implicit function calls.
