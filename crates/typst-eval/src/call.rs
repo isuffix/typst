@@ -98,7 +98,7 @@ fn eval_math_call(vm: &mut Vm, math_call: ast::MathCall) -> SourceResult<Value> 
 
     let math_call_result = match callee {
         ast::MathAccess::MathIdent(ident) => {
-            let callee_value = ident.eval(vm)?;
+            let callee_value = crate::math::eval_math_ident(vm, ident)?;
             // We need to call `trace_at` for the callee manually because we did
             // not evaluate via `ast::Expr::eval()`.
             vm.trace_at(ident.span(), &callee_value);

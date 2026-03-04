@@ -1,10 +1,13 @@
 use ecow::eco_format;
-use typst_library::diag::{At, SourceResult, warning};
-use typst_library::foundations::{Content, NativeElement, Symbol, SymbolElem, Value};
+use typst_library::diag::{At, SourceResult, bail, warning};
+use typst_library::foundations::{
+    Content, Func, NativeElement, Symbol, SymbolElem, Value,
+};
 use typst_library::math::{
     AlignPointElem, AttachElem, EquationElem, FracElem, LrElem, PrimesElem, RootElem,
 };
 use typst_library::text::TextElem;
+use typst_syntax::SyntaxNode;
 use typst_syntax::ast::{self, AstNode, MathTextKind};
 
 use crate::{Eval, Vm};
@@ -62,13 +65,8 @@ impl Eval for ast::MathIdent<'_> {
     type Output = Value;
 
     fn eval(self, vm: &mut Vm) -> SourceResult<Self::Output> {
-        let span = self.span();
-        Ok(vm
-            .scopes
-            .get_in_math(&self)
-            .at(span)?
-            .read_checked((&mut vm.engine, span))
-            .clone())
+        let value = eval_math_ident(vm, self)?;
+        error_if_func_literal(value, self.to_untyped())
     }
 }
 
@@ -76,9 +74,8 @@ impl Eval for ast::MathFieldAccess<'_> {
     type Output = Value;
 
     fn eval(self, vm: &mut Vm) -> SourceResult<Self::Output> {
-        let target = self.target().eval(vm)?;
-        let field = self.field();
-        crate::code::access_field(vm, target, field.as_str(), field.span())
+        let value = eval_math_field_access(vm, self)?;
+        error_if_func_literal(value, self.to_untyped())
     }
 }
 
@@ -87,14 +84,52 @@ impl Eval for ast::MathAccess<'_> {
 
     fn eval(self, vm: &mut Vm) -> SourceResult<Self::Output> {
         let value = match self {
-            ast::MathAccess::MathIdent(ident) => ident.eval(vm)?,
-            ast::MathAccess::MathFieldAccess(access) => access.eval(vm)?,
+            ast::MathAccess::MathIdent(ident) => eval_math_ident(vm, ident)?,
+            ast::MathAccess::MathFieldAccess(access) => {
+                eval_math_field_access(vm, access)?
+            }
         };
         // We need to call `trace_at` for the value because we did not evaluate
         // via `ast::Expr::eval()`.
         vm.trace_at(self.span(), &value);
         Ok(value)
     }
+}
+
+/// Evaluate an identifier in math.
+pub(crate) fn eval_math_ident(vm: &mut Vm, ident: ast::MathIdent) -> SourceResult<Value> {
+    let span = ident.span();
+    let value = vm
+        .scopes
+        .get_in_math(ident.as_str())
+        .at(span)?
+        .read_checked((&mut vm.engine, span))
+        .clone();
+    Ok(value)
+}
+
+/// Evaluate a field access in math.
+pub(crate) fn eval_math_field_access(
+    vm: &mut Vm,
+    access: ast::MathFieldAccess,
+) -> SourceResult<Value> {
+    let target = access.target().eval(vm)?;
+    let field = access.field();
+    crate::code::access_field(vm, target, field.as_str(), field.span())
+}
+
+/// Produce an error if the value is a function literal.
+fn error_if_func_literal(value: Value, access: &SyntaxNode) -> SourceResult<Value> {
+    if !matches!(value, Value::Symbol(_)) && value.clone().cast::<Func>().is_ok() {
+        let func = access.clone().full_text();
+        bail!(
+            access.span(),
+            "this does not call the `{func}` function";
+            hint: "to call the `{func}` function, write `{func}()`"
+            // TODO: Hint to remove a space if followed by non-direct parens: `abs ()`?
+        )
+    }
+    Ok(value)
 }
 
 impl Eval for ast::MathShorthand<'_> {
