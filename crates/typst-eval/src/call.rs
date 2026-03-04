@@ -15,10 +15,9 @@ use typst_syntax::ast::{self, AstNode};
 use typst_syntax::{Span, Spanned, SyntaxNode};
 use typst_utils::{LazyHash, Protected};
 
-use crate::{
-    Access, Eval, FlowEvent, Route, Vm, call_method_mut, hint_if_shadowed_std,
-    is_dict_mutating_method, is_mutating_method,
-};
+use crate::access::Access;
+use crate::methods::{call_method_mut, is_dict_mutating_method, is_mutating_method};
+use crate::{Eval, FlowEvent, Route, Vm, hint_if_shadowed_std};
 
 impl Eval for ast::FuncCall<'_> {
     type Output = Value;
@@ -642,7 +641,7 @@ pub fn eval_closure(
                     vm.define(ident, args.expect::<Value>(&ident)?)
                 }
                 pattern => {
-                    crate::destructure(
+                    crate::binding::destructure(
                         &mut vm,
                         pattern,
                         args.expect::<Value>("pattern parameter")?,

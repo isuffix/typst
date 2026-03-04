@@ -19,10 +19,6 @@ pub use self::flow::FlowEvent;
 pub use self::import::import;
 pub use self::vm::{Vm, hint_if_shadowed_std};
 
-use self::access::*;
-use self::binding::*;
-use self::methods::*;
-
 use comemo::{Track, Tracked, TrackedMut};
 use typst_library::diag::{SourceResult, bail};
 use typst_library::engine::{Engine, Route, Sink, Traced};

@@ -3,7 +3,7 @@ use typst_library::diag::{At, Hint, SourceResult, Trace, Tracepoint, bail};
 use typst_library::foundations::{Dict, Value};
 use typst_syntax::ast::{self, AstNode};
 
-use crate::{Eval, Vm, call_method_access, is_accessor_method};
+use crate::{Eval, Vm};
 
 /// Access an expression mutably.
 pub(crate) trait Access {
@@ -57,12 +57,13 @@ impl Access for ast::FuncCall<'_> {
     fn access<'a>(self, vm: &'a mut Vm) -> SourceResult<&'a mut Value> {
         if let ast::Expr::FieldAccess(access) = self.callee() {
             let method = access.field();
-            if is_accessor_method(&method) {
+            if crate::methods::is_accessor_method(&method) {
                 let span = self.span();
                 let world = vm.world();
                 let args = self.args().eval(vm)?.spanned(span);
                 let value = access.target().access(vm)?;
-                let result = call_method_access(value, &method, args, span);
+                let result =
+                    crate::methods::call_method_access(value, &method, args, span);
                 let point = || Tracepoint::Call(Some(method.get().clone()));
                 return result.trace(world, point, span);
             }

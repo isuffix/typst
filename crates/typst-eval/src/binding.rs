@@ -4,7 +4,8 @@ use typst_library::diag::{At, SourceDiagnostic, SourceResult, bail, error};
 use typst_library::foundations::{Array, Dict, Value};
 use typst_syntax::ast::{self, AstNode};
 
-use crate::{Access, Eval, Vm};
+use crate::access::Access;
+use crate::{Eval, Vm};
 
 impl Eval for ast::LetBinding<'_> {
     type Output = Value;
