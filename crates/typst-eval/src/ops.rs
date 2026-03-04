@@ -2,7 +2,8 @@ use typst_library::diag::{At, HintedStrResult, SourceResult};
 use typst_library::foundations::{IntoValue, Value, ops};
 use typst_syntax::ast::{self, AstNode};
 
-use crate::{Access, Eval, Vm, access_dict};
+use crate::access::Access;
+use crate::{Eval, Vm};
 
 impl Eval for ast::Unary<'_> {
     type Output = Value;
@@ -79,7 +80,7 @@ fn apply_assignment(
     if binary.op() == ast::BinOp::Assign
         && let ast::Expr::FieldAccess(access) = lhs
     {
-        let dict = access_dict(vm, access)?;
+        let dict = crate::access::access_dict(vm, access)?;
         dict.insert(access.field().get().clone().into(), rhs);
         return Ok(Value::None);
     }

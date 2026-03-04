@@ -4,7 +4,7 @@ use typst_syntax::ast::{self, AstNode};
 use typst_syntax::{Span, SyntaxKind, SyntaxNode};
 use unicode_segmentation::UnicodeSegmentation;
 
-use crate::{Eval, Vm, destructure};
+use crate::{Eval, Vm};
 
 /// The maximum number of loop iterations.
 const MAX_ITERATIONS: usize = 10_000;
@@ -125,7 +125,7 @@ impl Eval for ast::ForLoop<'_> {
 
                 #[allow(unused_parens)]
                 for value in $iterable {
-                    destructure(vm, $pat, value.into_value())?;
+                    crate::binding::destructure(vm, $pat, value.into_value())?;
 
                     let body = self.body();
                     let value = body.eval(vm)?;
