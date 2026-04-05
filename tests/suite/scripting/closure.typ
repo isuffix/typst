@@ -147,11 +147,10 @@
 }
 #f()
 
---- closure-capture-mut-false-positive eval ---
+--- closure-capture-mut-old-false-positive eval ---
 // Test the closure capture error on a non-mutating field call.
 #let sx = symbol("p", ("push", sym.tilde))
 #let f() = {
-  // Error: 3-5 variables from outside the function are read-only and cannot be modified
   sx.push(none)
 }
 #test(f(), std.sym.tilde(none))
