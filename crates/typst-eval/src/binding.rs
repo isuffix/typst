@@ -34,7 +34,7 @@ impl Eval for ast::DestructAssignment<'_> {
     fn eval(self, vm: &mut Vm) -> SourceResult<Self::Output> {
         let value = self.value().eval(vm)?;
         destructure_impl(vm, self.pattern(), value, &mut |vm, expr, value| {
-            let location = expr.access(vm)?;
+            let location = expr.access_direct(vm)?;
             *location = value;
             Ok(())
         })?;

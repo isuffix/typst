@@ -126,6 +126,7 @@ $ pi.alt() $
 #let array = (1, 2)
 #let dict = (one: 1)
 #let _ = $
+  // TODO: impl Access for MathIdent??
   // Error: 3-20 cannot call mutating methods in math
   // Hint: 3-20 try using code mode to call the method: `#array.push("two")`
   array.push("two")
@@ -137,11 +138,11 @@ $
 
 --- field-call-mut-temporary eval ---
 #let numbers = (1, 2, 3)
-// Error: 2-43 cannot mutate a temporary value
+// Error: 2-53 array index out of bounds (index: 4, len: 3) and no default value was specified
 #numbers.map(v => v / 2).sorted().map(str).remove(4)
 
 --- field-call-mut-constant eval ---
-// Error: 2-5 cannot mutate a constant: box
+// Error: 6-10 function `box` does not contain field `push`
 #box.push(1)
 
 --- field-call-dict-pop eval ---
@@ -161,8 +162,9 @@ $
 
 --- math-field-call-dict-non-func-pop eval ---
 #let dict = (pop: none)
-// Error: 3-13 cannot call mutating methods in math
-// Hint: 3-13 try using code mode to call the method: `#dict.pop()`
+// Error: 3-11 cannot directly call dictionary keys as functions
+// Hint: 3-11 dictionary keys cannot be used with method syntax as keys could conflict with built-in method names
+// Hint: 3-11 try adding a space before the parentheses
 $ dict.pop() $
 
 --- field-call-dict-non-func-pop-arg eval ---
@@ -174,8 +176,9 @@ $ dict.pop() $
 
 --- math-field-call-dict-non-func-pop-arg eval ---
 #let dict = (pop: none)
-// Error: 3-29 cannot call mutating methods in math
-// Hint: 3-29 try using code mode to call the method: `#dict.pop(arg: "something")`
+// Error: 3-11 cannot directly call dictionary keys as functions
+// Hint: 3-11 dictionary keys cannot be used with method syntax as keys could conflict with built-in method names
+// Hint: 3-11 try adding a space before the parentheses
 $ dict.pop(arg: "something") $
 
 --- field-call-mut-access eval ---
@@ -187,12 +190,11 @@ $ dict.pop(arg: "something") $
 }
 
 --- field-call-mut-access-module-push eval ---
-// Edge case for module access that isn't fixed.
+// An old edge case with fields matching mutable method names.
 #import "module.typ"
-// Works because the method name isn't categorized as mutating.
+// This always worked because the method name wasn't categorized as mutating.
 #test((module,).at(0).item(1, 2), 3)
-// Doesn't work because of mutating name.
-// Error: 7-16 cannot mutate a temporary value
+// This used to fail because of the field we called the `push` field.
 #test((module,).at(0).push(2), 3)
 
 --- math-field-call-mut-access-module-push eval ---
@@ -207,8 +209,8 @@ $ dict.pop(arg: "something") $
   let pair = (1, 2)
   let arrays = ((), (), ())
   arrays.at(pair.remove(0)).push(pair.remove(0))
-  //             ^^^^^^ second (2)    ^^^^^^ first (1)
-  test(arrays, ((), (), (1,)))
+  //             ^^^^^^ first (1)     ^^^^^^ second (2)
+  test(arrays, ((), (2,), ()))
 }
 
 --- field-call-mut-eval-order-self eval ---
@@ -280,11 +282,9 @@ $ dict.pop(arg: "something") $
 }
 
 --- field-call-accent-eval-order-shadowed-push eval ---
-// This differs because `push` is a mutating method name, even though the method
-// on `sp` here isn't actually mutating.
+// This now matches the expected behavior.
 #{
   let sp = symbol("p", ("push", sym.tilde))
-  // Error: 8-15 type boolean has no method `push`
   test(sp.push(let sp = false), sym.tilde(none))
   test(sp, false)
 }

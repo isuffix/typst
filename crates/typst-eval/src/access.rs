@@ -1,34 +1,106 @@
-use ecow::eco_format;
-use typst_library::diag::{At, Hint, SourceResult, Trace, Tracepoint, bail, error};
+use ecow::{EcoString, eco_format};
+use typst_library::diag::{At, Hint, SourceResult, Trace, Tracepoint, bail};
 use typst_library::foundations::{Args, Dict, Str, Value};
 use typst_syntax::Span;
 use typst_syntax::ast::{self, AstNode};
 
+use crate::call::{FieldCallee, call_func, eval_field_callee};
 use crate::{Eval, Vm};
 
 /// Access an expression mutably.
 pub(crate) trait Access {
     /// Access the expression's evaluated value mutably.
-    fn access<'a>(self, vm: &'a mut Vm) -> SourceResult<&'a mut Value>;
+    fn access_direct<'a>(self, vm: &'a mut Vm) -> SourceResult<&'a mut Value>;
+
+    fn access_indirect_or_eval(
+        self,
+        vm: &mut Vm,
+    ) -> SourceResult<Result<IndirectAccess, Value>>;
+}
+
+pub(crate) struct IndirectAccess {
+    /// The final value that should be accessed when the pattern is replayed.
+    ///
+    /// This may not actually be the final accessed value if the pattern is
+    /// replayed if the base identifier (or anything in the access pattern) is
+    /// mutated. Assuming otherwise could lead to a classic time-of-check vs.
+    /// time-of-use (TOCTOU) error.
+    ///
+    /// We could automatically error for that if we wanted to by storing a
+    /// unique value per mutable access location in the identifier's Binding.
+    /// However, the obvious choice of a `Span` would not be fit for this task
+    /// as they are overriden for strings passed to the `eval` function.
+    pub value: Value,
+    /// The base identifier of the pattern.
+    base: EcoString,
+    /// The access pattern.
+    pattern: Vec<PatternPart>,
+}
+
+/// Part of the pattern for a mutable access and the span for potential errors.
+enum PatternPart {
+    Key(EcoString, Span),
+    Index(i64, Span),
+}
+
+impl IndirectAccess {
+    /// Replay the indirect access and get the mutable value.
+    pub fn access<'a>(self, vm: &'a mut Vm) -> SourceResult<&'a mut Value> {
+        let Self { value, base, pattern } = self;
+        // Avoid an extra copy-on-write of the base value when calling `at_mut`.
+        drop(value);
+        let mut current = vm.scopes.get_mut(&base).unwrap().write().unwrap();
+        for part in pattern {
+            match (current, part) {
+                (Value::Dict(dict), PatternPart::Key(key, span)) => {
+                    current = dict.at_mut(&key).at(span)?;
+                }
+                (Value::Array(array), PatternPart::Index(index, span)) => {
+                    current = array.at_mut(index).at(span)?;
+                }
+                (_, PatternPart::Key(_, span)) => {
+                    bail!(span, "this is no longer a dict!")
+                }
+                (_, PatternPart::Index(_, span)) => {
+                    bail!(span, "this is no longer an array!")
+                }
+            }
+        }
+        Ok(current)
+    }
 }
 
 impl Access for ast::Expr<'_> {
-    fn access<'a>(self, vm: &'a mut Vm) -> SourceResult<&'a mut Value> {
+    fn access_direct<'a>(self, vm: &'a mut Vm) -> SourceResult<&'a mut Value> {
         match self {
-            Self::Ident(v) => v.access(vm),
-            Self::Parenthesized(v) => v.access(vm),
-            Self::FieldAccess(v) => v.access(vm),
-            Self::FuncCall(v) => v.access(vm),
+            Self::Ident(v) => v.access_direct(vm),
+            Self::Parenthesized(v) => v.access_direct(vm),
+            Self::FieldAccess(v) => v.access_direct(vm),
+            Self::FuncCall(v) => v.access_direct(vm),
             _ => {
                 let _ = self.eval(vm)?;
                 bail!(self.span(), "cannot mutate a temporary value");
             }
         }
     }
+
+    fn access_indirect_or_eval(
+        self,
+        vm: &mut Vm,
+    ) -> SourceResult<Result<IndirectAccess, Value>> {
+        match self {
+            Self::Ident(v) => v.access_indirect_or_eval(vm),
+            Self::MathIdent(v) => bail!(v.span(), "cannot mutate variables in math"),
+            Self::Parenthesized(v) => v.access_indirect_or_eval(vm),
+            Self::FieldAccess(v) => v.access_indirect_or_eval(vm),
+            Self::FuncCall(v) => v.access_indirect_or_eval(vm),
+            _ => Ok(Err(self.eval(vm)?)),
+        }
+    }
 }
 
 impl Access for ast::Ident<'_> {
-    fn access<'a>(self, vm: &'a mut Vm) -> SourceResult<&'a mut Value> {
+    fn access_direct<'a>(self, vm: &'a mut Vm) -> SourceResult<&'a mut Value> {
         let span = self.span();
         if vm.inspected == Some(span)
             && let Ok(binding) = vm.scopes.get(&self)
@@ -40,17 +112,66 @@ impl Access for ast::Ident<'_> {
             .and_then(|b| b.write().map_err(Into::into))
             .at(span)
     }
+
+    fn access_indirect_or_eval(
+        self,
+        vm: &mut Vm,
+    ) -> SourceResult<Result<IndirectAccess, Value>> {
+        let span = self.span();
+        let value = vm.scopes.get(&self).at(span)?.read().clone();
+        if vm.inspected == Some(span) {
+            vm.trace(value.clone());
+        }
+        if let Ok(binding_mut) = vm.scopes.get_mut(&self)
+            && binding_mut.write().is_ok()
+        {
+            Ok(Ok(IndirectAccess {
+                base: self.get().clone(),
+                value,
+                pattern: Vec::new(),
+            }))
+        } else {
+            Ok(Err(value))
+        }
+    }
 }
 
 impl Access for ast::Parenthesized<'_> {
-    fn access<'a>(self, vm: &'a mut Vm) -> SourceResult<&'a mut Value> {
-        self.expr().access(vm)
+    fn access_direct<'a>(self, vm: &'a mut Vm) -> SourceResult<&'a mut Value> {
+        self.expr().access_direct(vm)
+    }
+
+    fn access_indirect_or_eval(
+        self,
+        vm: &mut Vm,
+    ) -> SourceResult<Result<IndirectAccess, Value>> {
+        self.expr().access_indirect_or_eval(vm)
     }
 }
 
 impl Access for ast::FieldAccess<'_> {
-    fn access<'a>(self, vm: &'a mut Vm) -> SourceResult<&'a mut Value> {
+    fn access_direct<'a>(self, vm: &'a mut Vm) -> SourceResult<&'a mut Value> {
         access_dict(vm, self)?.at_mut(self.field().get()).at(self.span())
+    }
+
+    fn access_indirect_or_eval(
+        self,
+        vm: &mut Vm,
+    ) -> SourceResult<Result<IndirectAccess, Value>> {
+        let field = self.field();
+        match self.target().access_indirect_or_eval(vm)? {
+            Ok(IndirectAccess { value: Value::Dict(dict), base, mut pattern }) => {
+                let key = field.get().clone();
+                pattern.push(PatternPart::Key(key, field.span()));
+                let value = dict.get(&field).at(self.span())?.clone();
+                Ok(Ok(IndirectAccess { value, base, pattern }))
+            }
+            Err(target) | Ok(IndirectAccess { value: target, .. }) => {
+                let value =
+                    crate::code::access_field(vm, target, field.as_str(), field.span())?;
+                Ok(Err(value))
+            }
+        }
     }
 }
 
@@ -58,7 +179,7 @@ pub(crate) fn access_dict<'a>(
     vm: &'a mut Vm,
     access: ast::FieldAccess,
 ) -> SourceResult<&'a mut Dict> {
-    match access.target().access(vm)? {
+    match access.target().access_direct(vm)? {
         Value::Dict(dict) => Ok(dict),
         value => {
             let ty = value.ty();
@@ -84,16 +205,16 @@ pub(crate) fn access_dict<'a>(
 }
 
 impl Access for ast::FuncCall<'_> {
-    fn access<'a>(self, vm: &'a mut Vm) -> SourceResult<&'a mut Value> {
+    fn access_direct<'a>(self, vm: &'a mut Vm) -> SourceResult<&'a mut Value> {
         if let ast::Expr::FieldAccess(access) = self.callee()
             && let method = access.field()
-            && is_accessor_method(&method)
+            && maybe_accessor_method(&method)
         {
             let span = self.span();
             let world = vm.world();
             let args = self.args().eval(vm)?.spanned(span);
-            let value = access.target().access(vm)?;
-            let result = call_method_access(value, &method, args, span);
+            let value = access.target().access_direct(vm)?;
+            let result = call_accessor_method(value, &method, args, span);
             let point = || Tracepoint::Call(Some(method.get().clone()));
             result.trace(world, point, span)
         } else {
@@ -101,49 +222,130 @@ impl Access for ast::FuncCall<'_> {
             bail!(self.span(), "cannot mutate a temporary value");
         }
     }
+
+    fn access_indirect_or_eval(
+        self,
+        vm: &mut Vm,
+    ) -> SourceResult<Result<IndirectAccess, Value>> {
+        let span = self.span();
+        let callee = self.callee();
+        if let ast::Expr::FieldAccess(access) = callee
+            && let method = access.field()
+            && maybe_accessor_method(&method)
+        {
+            let target_expr = access.target();
+            match target_expr.access_indirect_or_eval(vm)? {
+                Ok(mut indirect) if is_accessor_method(&indirect.value, &method) => {
+                    let method_name = method.get();
+                    let mut args = self.args().eval(vm)?.spanned(self.span());
+                    let (result, pattern_part) = match indirect.value {
+                        Value::Array(array) if method_name == "first" => {
+                            (array.at(0, None), PatternPart::Index(0, span))
+                        }
+                        Value::Array(array) if method_name == "last" => {
+                            (array.at(-1, None), PatternPart::Index(-1, span))
+                        }
+                        Value::Array(array) if method_name == "at" => {
+                            let i = args.expect("index")?;
+                            (array.at(i, None), PatternPart::Index(i, span))
+                        }
+                        Value::Dict(dict) if method_name == "at" => {
+                            let k: Str = args.expect("key")?;
+                            (dict.at(k.clone(), None), PatternPart::Key(k.into(), span))
+                        }
+                        _ => unreachable!(),
+                    };
+                    args.finish()?;
+                    let point = || Tracepoint::Call(Some(method_name.clone()));
+                    indirect.value = result.at(span).trace(vm.world(), point, span)?;
+                    indirect.pattern.push(pattern_part);
+                    Ok(Ok(indirect))
+                }
+                Err(target) | Ok(IndirectAccess { value: target, .. }) => {
+                    let mut args = self.args().eval(vm)?.spanned(span);
+                    match eval_field_callee(
+                        vm,
+                        access.to_untyped(),
+                        method.as_str(),
+                        method.span(),
+                        target,
+                        false,
+                    )? {
+                        FieldCallee::Func(func) => {
+                            Ok(Err(call_func(vm, func, args, span)?))
+                        }
+                        FieldCallee::Method(func, target) => {
+                            // Method calls pass the target as the first argument.
+                            args.insert(0, target_expr.span(), target);
+                            Ok(Err(call_func(vm, func, args, span)?))
+                        }
+                        FieldCallee::NonFunc(_, err) => Err(err).at(callee.span()),
+                    }
+                }
+            }
+        } else {
+            let value = self.eval(vm)?;
+            Ok(Err(value))
+        }
+    }
 }
 
-/// Whether a specific method is an accessor.
-fn is_accessor_method(method: &str) -> bool {
+/// Whether a method might be an accessor. May be a false-positive.
+fn maybe_accessor_method(method: &str) -> bool {
     matches!(method, "first" | "last" | "at")
 }
 
+/// Whether a method is an accessor for the given value.
+fn is_accessor_method(value: &Value, method: &str) -> bool {
+    matches!(
+        (value, method),
+        (Value::Array(_), "first" | "last" | "at") | (Value::Dict(_), "at")
+    )
+}
+
 /// Call an accessor method on a value.
-fn call_method_access<'a>(
+fn call_accessor_method<'a>(
     value: &'a mut Value,
     method: &str,
     mut args: Args,
     span: Span,
 ) -> SourceResult<&'a mut Value> {
-    let ty = value.ty();
-    let missing = || error!(span, "type {ty} has no method `{method}`");
+    if !is_accessor_method(value, method) {
+        let ty = value.ty();
+        // TODO: Add tests for a symbol with a `.at()` method.
+        bail!(span, "type {ty} has no method `{method}`");
+    }
 
     let slot = match value {
         Value::Array(array) => match method {
             "first" => array.first_mut().at(span)?,
             "last" => array.last_mut().at(span)?,
             "at" => array.at_mut(args.expect("index")?).at(span)?,
-            _ => bail!(missing()),
+            _ => unreachable!(),
         },
         Value::Dict(dict) => match method {
             "at" => dict.at_mut(&args.expect::<Str>("key")?).at(span)?,
-            _ => bail!(missing()),
+            _ => unreachable!(),
         },
-        _ => bail!(missing()),
+        _ => unreachable!(),
     };
 
     args.finish()?;
     Ok(slot)
 }
 
-/// Whether a specific method is mutating.
-pub(crate) fn is_mutating_method(method: &str) -> bool {
+/// Whether a method might be mutating. May be a false-positive.
+pub(crate) fn maybe_mutating_method(method: &str) -> bool {
     matches!(method, "push" | "pop" | "insert" | "remove")
 }
 
-/// Mutating methods for dictionaries.
-fn is_dict_mutating_method(method: &str) -> bool {
-    matches!(method, "insert" | "remove")
+/// Whether a method is mutating for the given value.
+pub(crate) fn is_mutating_method(value: &Value, method: &str) -> bool {
+    matches!(
+        (value, method),
+        (Value::Array(_), "push" | "pop" | "insert" | "remove")
+            | (Value::Dict(_), "insert" | "remove")
+    )
 }
 
 /// Attempt to resolve a mutating method call by evaluating args and then
@@ -159,36 +361,32 @@ pub(crate) fn maybe_resolve_mutating(
     field: ast::Ident,
     args: ast::Args,
     span: Span,
-) -> SourceResult<Result<Value, (Value, Args)>> {
-    // We evaluate the arguments first because `target_expr.access(vm)` mutably
-    // borrows `vm`, so we won't be able to call `args.eval(vm)` afterwards.
-    let args = args.eval(vm)?.spanned(span);
-    match target.access(vm)? {
-        // Skip methods that aren't actually mutating for dictionaries.
-        target @ Value::Dict(_) if !is_dict_mutating_method(field.as_str()) => {
-            Ok(Err((target.clone(), args)))
-        }
-        // Only arrays and dictionaries have mutable methods.
-        target @ (Value::Array(_) | Value::Dict(_)) => {
-            let value = call_method_mut(target, &field, args, span);
+) -> SourceResult<Result<Value, Value>> {
+    match target.access_indirect_or_eval(vm)? {
+        Ok(indirect) if is_mutating_method(&indirect.value, &field) => {
+            let args = args.eval(vm)?.spanned(span);
+            let value = indirect.access(vm)?;
+            let result = call_mutating_method(value, &field, args, span);
             let point = || Tracepoint::Call(Some(field.get().clone()));
-            Ok(Ok(value.trace(vm.world(), point, span)?))
+            let resolved = result.trace(vm.world(), point, span)?;
+            Ok(Ok(resolved))
         }
-        target => Ok(Err((target.clone(), args))),
+        Err(value) | Ok(IndirectAccess { value, .. }) => Ok(Err(value)),
     }
 }
 
 /// Call a mutating method on a value.
-fn call_method_mut(
+fn call_mutating_method(
     value: &mut Value,
     method: &str,
     mut args: Args,
     span: Span,
 ) -> SourceResult<Value> {
-    let ty = value.ty();
-    let missing = || error!(span, "type {ty} has no method `{method}`");
-    let mut output = Value::None;
+    if !is_mutating_method(value, method) {
+        bail!(span, "this value has been modified!")
+    }
 
+    let mut output = Value::None;
     match value {
         Value::Array(array) => match method {
             "push" => array.push(args.expect("value")?),
@@ -201,19 +399,17 @@ fn call_method_mut(
                     .remove(args.expect("index")?, args.named("default")?)
                     .at(span)?
             }
-            _ => bail!(missing()),
+            _ => unreachable!(),
         },
-
         Value::Dict(dict) => match method {
             "insert" => dict.insert(args.expect::<Str>("key")?, args.expect("value")?),
             "remove" => {
                 output =
                     dict.remove(args.expect("key")?, args.named("default")?).at(span)?
             }
-            _ => bail!(missing()),
+            _ => unreachable!(),
         },
-
-        _ => bail!(missing()),
+        _ => unreachable!(),
     }
 
     args.finish()?;
