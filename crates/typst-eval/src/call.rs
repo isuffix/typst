@@ -15,8 +15,7 @@ use typst_syntax::ast::{self, AstNode};
 use typst_syntax::{Span, Spanned, SyntaxNode};
 use typst_utils::{LazyHash, Protected};
 
-use crate::access::Access;
-use crate::methods::{call_method_mut, is_dict_mutating_method, is_mutating_method};
+use crate::access::{is_mutating_method, maybe_resolve_mutating};
 use crate::{Eval, FlowEvent, Route, Vm, hint_if_shadowed_std};
 
 impl Eval for ast::FuncCall<'_> {
@@ -176,38 +175,6 @@ fn call_func(vm: &mut Vm, func: Func, args: Args, span: Span) -> SourceResult<Va
 
     #[cfg(not(target_arch = "wasm32"))]
     stacker::maybe_grow(32 * 1024, 2 * 1024 * 1024, f)
-}
-
-/// Attempt to resolve a mutating method call by evaluating args and then
-/// attempting to access the target mutably. If the target's type doesn't
-/// support mutating methods (only Array/Dict actually do), returns the
-/// evaluated value and arguments.
-///
-/// This currently causes a number of bad errors due to limitations of the
-/// [`Access`] trait used for mutation.
-fn maybe_resolve_mutating(
-    vm: &mut Vm,
-    target: ast::Expr,
-    field: ast::Ident,
-    args: ast::Args,
-    span: Span,
-) -> SourceResult<Result<Value, (Value, Args)>> {
-    // We evaluate the arguments first because `target_expr.access(vm)` mutably
-    // borrows `vm`, so we won't be able to call `args.eval(vm)` afterwards.
-    let args = args.eval(vm)?.spanned(span);
-    match target.access(vm)? {
-        // Skip methods that aren't actually mutating for dictionaries.
-        target @ Value::Dict(_) if !is_dict_mutating_method(field.as_str()) => {
-            Ok(Err((target.clone(), args)))
-        }
-        // Only arrays and dictionaries have mutable methods.
-        target @ (Value::Array(_) | Value::Dict(_)) => {
-            let value = call_method_mut(target, &field, args, span);
-            let point = || Tracepoint::Call(Some(field.get().clone()));
-            Ok(Ok(value.trace(vm.world(), point, span)?))
-        }
-        target => Ok(Err((target.clone(), args))),
-    }
 }
 
 /// The kind of callee in a field-access function call.
