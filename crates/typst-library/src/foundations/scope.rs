@@ -129,6 +129,41 @@ impl<'a> Scopes<'a> {
             })
     }
 
+    /// Try to access a binding value immutably, but also return whether the
+    /// binding can be mutated.
+    ///
+    /// This avoids needing to call both [`Self::get`] and [`Self::get_mut`] in
+    /// a row to determine mutability.
+    pub fn get_with_mutability(
+        &mut self,
+        var: &str,
+        guard: impl BindingGuard,
+    ) -> HintedStrResult<(&Value, bool)> {
+        std::iter::once(&mut self.top)
+            .chain(&mut self.scopes.iter_mut().rev())
+            .find_map(|scope| {
+                let binding = scope.get(var)?;
+                let mutable = !matches!(binding.kind, BindingKind::Captured(_));
+                Some((binding, mutable))
+            })
+            .or_else(|| {
+                let base = self.base?;
+                match base.global.scope().get(var) {
+                    Some(binding) => Some((binding, false)),
+                    None if var == "std" => Some((&base.std, false)),
+                    None => None,
+                }
+            })
+            .map(|(binding, mutable)| {
+                binding
+                    .read(guard)
+                    .map(|value| (value, mutable))
+                    .or_cannot(format_args!("access variable `{var}`"))
+            })
+            .transpose()?
+            .ok_or_else(|| unknown_variable(var))
+    }
+
     /// Check if an std variable is shadowed.
     pub fn check_std_shadowed(&self, var: &str) -> bool {
         self.base.is_some_and(|base| base.global.scope().get(var).is_some())
