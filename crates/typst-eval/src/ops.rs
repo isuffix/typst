@@ -85,7 +85,7 @@ fn apply_assignment(
         return Ok(Value::None);
     }
 
-    let location = binary.lhs().access(vm)?;
+    let location = binary.lhs().access_direct(vm)?;
     let lhs = std::mem::take(&mut *location);
     *location = op(lhs, rhs).at(binary.span())?;
     Ok(Value::None)

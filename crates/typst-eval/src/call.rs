@@ -15,7 +15,7 @@ use typst_syntax::ast::{self, AstNode};
 use typst_syntax::{Span, Spanned, SyntaxNode};
 use typst_utils::{LazyHash, Protected};
 
-use crate::access::{is_mutating_method, maybe_resolve_mutating};
+use crate::access::{is_mutating_method, maybe_mutating_method, maybe_resolve_mutating};
 use crate::{Eval, FlowEvent, Route, Vm, hint_if_shadowed_std};
 
 impl Eval for ast::FuncCall<'_> {
@@ -31,14 +31,15 @@ impl Eval for ast::FuncCall<'_> {
         if let ast::Expr::FieldAccess(access) = callee {
             let target_expr = access.target();
             let field = access.field();
-            let (target, maybe_args) = if is_mutating_method(field.as_str()) {
+            let target = if maybe_mutating_method(field.as_str()) {
                 match maybe_resolve_mutating(vm, target_expr, field, self.args(), span)? {
                     Ok(value) => return Ok(value),
-                    Err((target, args)) => (target, Some(args)),
+                    Err(target) => target,
                 }
             } else {
-                (target_expr.eval(vm)?, None)
+                target_expr.eval(vm)?
             };
+            let mut args = self.args().eval(vm)?.spanned(span);
             match eval_field_callee(
                 vm,
                 access.to_untyped(),
@@ -47,18 +48,8 @@ impl Eval for ast::FuncCall<'_> {
                 target,
                 false,
             )? {
-                FieldCallee::Func(func) => {
-                    let args = match maybe_args {
-                        Some(args) => args,
-                        None => self.args().eval(vm)?.spanned(span),
-                    };
-                    call_func(vm, func, args, span)
-                }
+                FieldCallee::Func(func) => call_func(vm, func, args, span),
                 FieldCallee::Method(func, target) => {
-                    let mut args = match maybe_args {
-                        Some(args) => args,
-                        None => self.args().eval(vm)?.spanned(span),
-                    };
                     // Method calls pass the target as the first argument.
                     args.insert(0, target_expr.span(), target);
                     call_func(vm, func, args, span)
@@ -110,9 +101,7 @@ fn eval_math_call(vm: &mut Vm, math_call: ast::MathCall) -> SourceResult<Value> 
             target_span = target_expr.span();
             let field = access.field();
             let target = target_expr.eval(vm)?;
-            if is_mutating_method(field.as_str())
-                && matches!(target, Value::Array(_) | Value::Dict(_))
-            {
+            if is_mutating_method(&target, field.as_str()) {
                 // FUTURE: This is probably worth allowing once we nail down
                 // mutable method semantics.
                 //
@@ -161,7 +150,12 @@ fn eval_math_call(vm: &mut Vm, math_call: ast::MathCall) -> SourceResult<Value> 
 }
 
 /// Call a function.
-fn call_func(vm: &mut Vm, func: Func, args: Args, span: Span) -> SourceResult<Value> {
+pub(crate) fn call_func(
+    vm: &mut Vm,
+    func: Func,
+    args: Args,
+    span: Span,
+) -> SourceResult<Value> {
     let func = func.spanned(span);
     let point = || Tracepoint::Call(func.name().map(Into::into));
     let f = || {
@@ -178,7 +172,7 @@ fn call_func(vm: &mut Vm, func: Func, args: Args, span: Span) -> SourceResult<Va
 }
 
 /// The kind of callee in a field-access function call.
-enum FieldCallee {
+pub(crate) enum FieldCallee {
     /// A method on a type or on content, with the target value to be added as
     /// the first argument of the call.
     Method(Func, Value),
@@ -202,7 +196,7 @@ enum FieldCallee {
 /// - Prioritizing methods would make all new method additions breaking changes.
 /// - Prioritizing field functions would break methods for certain dictionaries,
 ///   e.g. `(at: x => ...).at(key)`.
-fn eval_field_callee<'a, 'b>(
+pub(crate) fn eval_field_callee<'a, 'b>(
     vm: &'a mut Vm<'b>,
     access: &SyntaxNode,
     field: &str,
