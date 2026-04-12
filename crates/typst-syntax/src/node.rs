@@ -322,16 +322,6 @@ impl SyntaxNode {
     }
 }
 
-impl Debug for SyntaxNode {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        match &self.0 {
-            NodeKind::Leaf(leaf) => leaf.fmt(f),
-            NodeKind::Inner(inner) => inner.fmt(f),
-            NodeKind::Error(node) => node.fmt(f),
-        }
-    }
-}
-
 impl Default for SyntaxNode {
     fn default() -> Self {
         Self::leaf(SyntaxKind::End, EcoString::new())
@@ -366,12 +356,6 @@ impl LeafNode {
     /// Whether the two leaf nodes are the same apart from spans.
     fn spanless_eq(&self, other: &Self) -> bool {
         self.kind == other.kind && self.text == other.text
-    }
-}
-
-impl Debug for LeafNode {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "{:?}: {:?}", self.kind, self.text)
     }
 }
 
@@ -614,17 +598,6 @@ impl InnerNode {
     }
 }
 
-impl Debug for InnerNode {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "{:?}: {}", self.kind, self.len)?;
-        if !self.children.is_empty() {
-            f.write_str(" ")?;
-            f.debug_list().entries(&self.children).finish()?;
-        }
-        Ok(())
-    }
-}
-
 /// An error node in the untyped syntax tree.
 #[derive(Clone, Eq, PartialEq, Hash)]
 struct ErrorNode {
@@ -656,12 +629,6 @@ impl ErrorNode {
     }
 }
 
-impl Debug for ErrorNode {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "Error: {:?} ({})", self.text, self.error.message)
-    }
-}
-
 /// A syntactical error.
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct SyntaxError {
@@ -687,6 +654,39 @@ impl SyntaxError {
     /// Whether the two errors are the same apart from spans.
     fn spanless_eq(&self, other: &Self) -> bool {
         self.message == other.message && self.hints == other.hints
+    }
+}
+
+impl Debug for SyntaxNode {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        match &self.0 {
+            NodeKind::Leaf(leaf) => leaf.fmt(f),
+            NodeKind::Inner(inner) => inner.fmt(f),
+            NodeKind::Error(node) => node.fmt(f),
+        }
+    }
+}
+
+impl Debug for LeafNode {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        write!(f, "{:?}: {:?}", self.kind, self.text)
+    }
+}
+
+impl Debug for InnerNode {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        write!(f, "{:?}: {}", self.kind, self.len)?;
+        if !self.children.is_empty() {
+            f.write_str(" ")?;
+            f.debug_list().entries(&self.children).finish()?;
+        }
+        Ok(())
+    }
+}
+
+impl Debug for ErrorNode {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        write!(f, "Error: {:?} ({})", self.text, self.error.message)
     }
 }
 
@@ -1043,6 +1043,45 @@ impl std::error::Error for Unnumberable {}
 mod tests {
     use super::*;
     use crate::Source;
+
+    /// Test the debug output of a `SyntaxNode`.
+    #[test]
+    fn test_debug() {
+        // A standard syntax tree:
+        assert_eq!(
+            format!("{:#?}", crate::parse("= Head <label>")),
+            "\
+Markup: 14 [
+    Heading: 6 [
+        HeadingMarker: \"=\",
+        Space: \" \",
+        Markup: 4 [
+            Text: \"Head\",
+        ],
+    ],
+    Space: \" \",
+    Label: \"<label>\",
+]"
+        );
+        // A basic syntax error:
+        assert_eq!(
+            format!("{:#?}", crate::parse("#")),
+            "\
+Markup: 1 [
+    Hash: \"#\",
+    Error: \"\" (expected expression),
+]"
+        );
+        // A syntax error with multiple hints:
+        assert_eq!(
+            format!("{:#?}", crate::parse("##")),
+            "\
+Markup: 2 [
+    Hash: \"#\",
+    Error: \"#\" (the character `#` is not valid in code),
+]"
+        );
+    }
 
     #[test]
     fn test_linked_node() {
