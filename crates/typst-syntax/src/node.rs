@@ -247,7 +247,43 @@ impl SyntaxNode {
 
     /// Set a synthetic span for the node and all its descendants.
     pub fn synthesize(&mut self, span: Span) {
-        self.synthesize_with(0, &mut |_| span);
+        self.synthesize_offset(0, span);
+    }
+
+    /// Set the synthetic span and add a hint with the original text's indices
+    /// for errors or warnings.
+    fn synthesize_offset(&mut self, mut offset: usize, span: Span) {
+        fn add_hint(hints: &mut EcoVec<EcoString>, range: Range<usize>) {
+            if range.is_empty() {
+                hints.push(eco_format!("at index: {}", range.start));
+            } else {
+                hints.push(eco_format!("at index range: {}, {}", range.start, range.end));
+            }
+        }
+        match &mut self.0 {
+            NodeWrapper::Node(Node::Leaf(leaf)) => leaf.span = span,
+            NodeWrapper::Node(Node::Inner(inner)) => {
+                let inner = Arc::make_mut(inner);
+                inner.span = span;
+                inner.upper = inner.span.number();
+                for child in &mut inner.children {
+                    child.synthesize_offset(offset, span);
+                    offset += child.len();
+                }
+            }
+            NodeWrapper::Node(Node::Error(err)) => {
+                let err = Arc::make_mut(err);
+                let range = offset..offset + err.text.len();
+                add_hint(&mut err.error.hints, range);
+                err.error.span = span;
+            }
+            NodeWrapper::Warning(warn) => {
+                let warn = Arc::make_mut(warn);
+                let range = offset..offset + warn.child.len();
+                add_hint(&mut warn.hints, range);
+                warn.child.synthesize_offset(offset, span);
+            }
+        }
     }
 
     /// Set a raw range span for each node.
@@ -266,12 +302,20 @@ impl SyntaxNode {
     /// Should be called with `offset = 0` on the root node.
     fn synthesize_with(
         &mut self,
-        offset: usize,
+        mut offset: usize,
         f: &mut impl FnMut(Range<usize>) -> Span,
     ) {
         match self.node_mut() {
             Node::Leaf(leaf) => leaf.span = f(offset..offset + leaf.text.len()),
-            Node::Inner(inner) => Arc::make_mut(inner).synthesize_with_impl(offset, f),
+            Node::Inner(inner) => {
+                let inner = Arc::make_mut(inner);
+                inner.span = f(offset..offset + inner.len);
+                inner.upper = inner.span.number();
+                for child in &mut inner.children {
+                    child.synthesize_with(offset, f);
+                    offset += child.len();
+                }
+            }
             Node::Error(err) => {
                 Arc::make_mut(err).error.span = f(offset..offset + err.text.len())
             }
@@ -536,20 +580,6 @@ impl InnerNode {
             diagnosis,
             upper: 0,
             children,
-        }
-    }
-
-    /// Set a synthetic span for the node and all its descendants.
-    fn synthesize_with_impl(
-        &mut self,
-        mut offset: usize,
-        f: &mut impl FnMut(Range<usize>) -> Span,
-    ) {
-        self.span = f(offset..offset + self.len);
-        self.upper = self.span.number();
-        for child in &mut self.children {
-            child.synthesize_with(offset, f);
-            offset += child.len();
         }
     }
 
