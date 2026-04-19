@@ -109,6 +109,12 @@ The keyword ```rust let```.
 --- raw-lang-backtick-no-space eval ---
 // The language tag stops at a backtick even without whitespace.
 // TODO: Do we want this behavior? It was not discussed in #7337.
+
+// Warning: 15-24 no whitespace between language tag and text
+// Hint: 15-19 if the current behavior is correct, please add a space after `lang`
+// Hint: 15-19 otherwise, add a space or newline after the initial backticks
+// Hint: 15-24 currently, Typst is treating `lang` as the language tag
+// Hint: 15-24 in the next version of Typst, this will change and we will treat all text until the first whitespace as the language tag
 #let raw = ```lang`test ` ```
 #test(raw.lang, "lang")
 #test(raw.text, "`test `")
@@ -139,12 +145,21 @@ test
 
 --- raw-lang-non-ident eval ---
 // The language tag does not have to be a valid identifier.
+
+// Warning: 15-25 no whitespace between language tag and text
+// Hint: 15-19 if the current behavior is correct, please add a space after `lang`
+// Hint: 15-19 otherwise, add a space or newline after the initial backticks
+// Hint: 15-25 currently, Typst is treating `lang` as the language tag
+// Hint: 15-25 in the next version of Typst, this will change and we will treat all text until the first whitespace as the language tag
 #let raw = ```lang.tag++ test```
-#test(raw.lang, "lang.tag++")
-#test(raw.text, "test")
+#test(raw.lang, "lang")
+#test(raw.text, ".tag++ test")
 #test(raw.block, false)
 
 --- raw-lang-no-text eval ---
+// Warning: 12-22 empty raw text
+// Hint: 12-22 currently, Typst is treating `lang` as the language tag
+// Hint: 15-19 to treat this as text, add a space after the initial backticks
 #let raw = ```lang```
 #test(raw.lang, "lang")
 #test(raw.text, "")
@@ -152,9 +167,13 @@ test
 
 --- raw-lang-starts-non-ident eval ---
 // Test the language tag starting with non-identifier characters.
+// Warning: 15-31 no whitespace before the raw text
+// Hint: 15-31 in the next version of Typst, this text will be treated as the language tag for this element
+// Hint: 15-31 to avoid this, add a space after the initial backticks
 #let raw = ```!@#$%^&*()_+lang test```
-#test(raw.lang, "!@#$%^&*()_+lang")
-#test(raw.text, "test")
+#test(raw.text, "!@#$%^&*()_+lang test")
+// Error: 11-15 field "lang" in raw is not known at this point
+#test(raw.lang, none)
 #test(raw.block, false)
 
 --- raw-blocky eval ---
@@ -523,8 +542,9 @@ int main() {
 
 --- raw-highlight-html-jinja2 paged ---
 #set page(width: auto)
+// TODO: Convert to raw syntax when we re-enable non-identifier language tags
 
-```html.j2
+#raw(block: true, lang: "html.j2", ```
 <tbody>
   {% for row in data.rows %}
   <tr>
@@ -534,7 +554,7 @@ int main() {
   </tr>
   {% endfor %}
 </tbody>
-```
+```.text)
 
 --- raw-html html ---
 This is ```typ *inline*```.

@@ -31,13 +31,19 @@ use crate::visualize::Color;
 /// Raw text with optional syntax highlighting.
 ///
 /// Displays the text verbatim and in a monospace font. This is typically used
-/// to embed computer code into your document.
+/// to embed computer code into a document.
 ///
-/// Note that text given to this element cannot contain arbitrary formatting,
-/// such as `[*strong*]` or `[_emphasis_]`, as it is displayed verbatim. If
-/// you'd like to display any kind of content with a monospace font, instead of
-/// using @raw, you should change its font to a monospace font using the @text
-/// function.
+/// Text given to this element will ignore markup syntax, such as `[*strong*]`
+/// or `[_emphasis_]`, and will be displayed verbatim. If you would like to
+/// display content with a monospace font while still allowing markup syntax,
+/// instead of using @raw, you can explicitly set the text font to a monospace
+/// font with the @text.font parameter.
+///
+/// Raw elements are mainly produced with their @raw:syntax[dedicated syntax] by
+/// enclosing text with either one or three-plus backtick characters (``` ` ```)
+/// on both sides. When using three or more backticks, text immediately after
+/// the initial backticks will be treated as a @raw.lang[language tag] used for
+/// syntax highlighting, and the raw text begins after the first whitespace.
 ///
 /// = Example <example>
 /// ````example
@@ -60,32 +66,16 @@ use crate::visualize::Color;
 /// ````
 ///
 /// You can also construct a @raw element programmatically from a string (and
-/// provide the language tag via the optional @raw.lang[`lang`] argument).
+/// provide the language tag via the optional @raw.lang[`lang`] parameter).
 ///
 /// ```example
 /// #raw("fn " + "main() {}", lang: "rust")
 /// ```
 ///
-/// = Syntax <syntax>
-/// This function also has dedicated syntax. You can enclose text in 1 or 3+
-/// backticks (``` ` ```) to make it raw. Two backticks produce empty raw text.
-/// This works both in markup and code.
-///
-/// When you use three or more backticks, you can additionally specify a
-/// language tag for syntax highlighting directly after the opening backticks.
-/// Within raw blocks, everything (except for the language tag, if applicable)
-/// is rendered as is, in particular, there are no escape sequences.
-///
-/// The language tag ends at the first whitespace or backtick. If your text
-/// starts with something that looks like an identifier, but no syntax
-/// highlighting is needed, start the text with a single space (which will be
-/// trimmed) or use the single backtick syntax. If your text should start or end
-/// with a backtick, put a space before or after it (it will be trimmed).
-///
 /// If no syntax highlighting is available by default for your specified
 /// language tag (or if you want to override the built-in definition), you may
 /// provide a custom syntax specification file to the @raw.syntaxes[`syntaxes`]
-/// field.
+/// parameter.
 ///
 /// = Styling <styling>
 /// By default, the `raw` element uses the `DejaVu Sans Mono` font (included
@@ -114,15 +104,149 @@ use crate::visualize::Color;
 /// ````
 ///
 /// In addition, you can customize the syntax highlighting colors by setting a
-/// custom theme through the @raw.theme[`theme`] field.
+/// custom theme through the @raw.theme[`theme`] parameter.
 ///
 /// For complete customization of the appearance of a raw block, a show rule on
 /// @raw.line could be helpful, such as to add line numbers.
 ///
-/// Note that, in raw text, typesetting features like
+/// Note that in raw text, typesetting features like
 /// @text.hyphenate[hyphenation], @text.overhang[overhang],
-/// @text.cjk-latin-spacing[CJK-Latin spacing] (and @par.justify[justification]
-/// for @raw.block[raw blocks]) will be disabled by default.
+/// @text.cjk-latin-spacing[CJK-Latin spacing], and (for raw blocks)
+/// @par.justify[justification] will be disabled by default.
+///
+/// = Syntax <syntax>
+/// This function has dedicated syntax that works in both markup and code mode.
+/// You can enclose text one or three-plus backtick characters (``` ` ```) on
+/// both sides to make it raw. The number of backticks must be the same on both
+/// sides, and the enclosed text cannot contain a group of that many backticks
+/// in a row. Writing just two backticks (``` `` ```) produces an empty raw
+/// element.
+///
+/// This is intended to be similar to syntax found in other markup languages
+/// like Markdown, but has some notably different behaviors which make it more
+/// flexible: writing two backticks in a row makes it easy to produce an empty
+/// raw element, single backticks can enclose text spanning multiple lines
+/// without removing indentation, and the three-plus backtick syntax still
+/// interprets language tags when used inline.
+///
+/// Raw text enclosed in _single backticks_ has no way to specify a language tag
+/// and is always treated as inline for use within a paragraph, i.e. the
+/// @raw.block[`block`] parameter is `{false}`. However the text may span
+/// multiple lines and will include the line breaks and indentation verbatim in
+/// its content (this is similar to the behavior of like @str[strings]).
+///
+/// Raw syntax using _three or more backticks_ is meant to be more flexible and
+/// has the following smart behaviors for including text and trimming
+/// whitespace:
+///
+/// - *The text starts after the initial set of backticks and only ends when it
+///   encounters a group of the same number of backticks*
+///
+///   This allows for enclosing text which itself contains backticks, which you
+///   can do by increasing the number of enclosing backticks until they exceed
+///   the largest group of backticks in the text itself. To enclose text
+///   containing a group of three backticks, use four backticks on either side.
+///
+/// - *The raw element can be inline or block-level based on linebreaks*
+///
+///   If the text inside the backticks contains a linebreak character, it will
+///   produce a block-level element. If the text does not, it will produce an
+///   inline element. This sets the @raw.block[`block`] parameter to `{true}` or
+///   `{false}` accordingly.
+///
+/// - *Text immediately after the initial backticks (up to the first whitespace)
+///   is treated as a "language tag" for interpreting the raw text as code in
+///   that language*
+///
+///   If any non-whitespace text follows on the initial line, a single (ASCII)
+///   space may be added after the language tag or immediately after the initial
+///   backticks to avoid treating the following text as part of the language
+///   tag. This space will be trimmed from the raw text if present.
+///
+///   The specific rules for which text can be treated as the language tag are
+///   planned to change, and are @raw:language-tag-changes[explained in detail
+///   below.]
+///
+/// - *Common indentation in the text is trimmed so raw syntax can be used
+///   directly at any indentation level*
+///
+///   In particular, the line which has any non-whitespace characters (including
+///   the line containing the closing backticks) that contains the least amount
+///   of leading whitespace characters determines the number of characters
+///   trimmed from the beginning of every line. Lines which are only whitespace
+///   will remove the same number of characters until they are empty, but do
+///   keep extra trailing whitespace.
+///
+///   #let code-point = "https://www.unicode.org/glossary/#code_point"; Note that
+///   this check treats tabs and spaces as equivalent characters for simplicity,
+///   and that it operates on numbers of #link(code-point)[Unicode code points],
+///   i.e. characters, not on byte lengths.
+///
+/// - *The initial and final lines trim whitespace specially*
+///
+///   If all characters on the the initial line following the initial backticks
+///   or the language tag are whitespace, they are trimmed from the raw text.
+///   Otherwise a single space character (if present) will be trimmed
+///   immediately following the initial backticks or language tag.
+///
+///   If the final line (up to the closing backticks) is entirely whitespace, it
+///   is trimmed from the raw text. Otherwise, if the last non-whitespace
+///   character of the final line is a backtick, then one space character (if
+///   present) will be trimmed from the end.
+///
+///   Trimming single spaces allows writing content that starts or ends with a
+///   backtick by adding a space inside the enclosing backticks. Trimming a
+///   space from the start allows using a space to separate a language tag from
+///   content on the initial line or to avoid including a language tag at all.
+///
+/// == Embedding strings with raw syntax <embedding-strings>
+/// A common use-case for raw syntax is to embed data as strings with formatting
+/// by accessing the `.text` field on raw content to get the underlying string.
+/// This may also be paired with the @bytes constructor to convert the string to
+/// bytes.
+///
+/// ````example
+/// #yaml(bytes(
+///   ```yaml
+///   Magic:
+///     limited-by: Mana
+///   Pokémon:
+///     limited-by: Energy
+///   Yu-Gi-Oh:
+///     limited-by: false
+///   ```.text
+///   //  ^^^^ used as a string
+/// ))
+/// ````
+///
+/// == Language tag changes <language-tag-changes>
+///
+/// When using raw syntax with three or more backticks, text immediately after
+/// the initial backticks (up to the first whitespace) is treated as a
+/// @raw.lang[language tag]. However in the current version of Typst, only text
+/// that would be a valid Typst identifier is treated as the language tag. So if
+/// a raw block starts with `C++`, the identifier `C` will be the language tag,
+/// and the raw text will start with `++`. If a raw block starts with `++C`, it
+/// will have no language tag and the raw text will start with `++C`.
+///
+/// If you do want to use something like `C++`, `++C`, or `html.j2` as a
+/// language tag in the current version, you will need to use the
+/// @raw.lang[`lang`] parameter and pass in the raw text as a string. This can
+/// be aided by using a `set` rule, or by writing a raw block with no tag and
+/// using `.text` to access the contents as a string, but it can still be
+/// annoying.
+///
+/// In the next version of Typst, _all text_ up to the first whitespace or
+/// backtick will be treated as the language tag, so tags like `C++` or
+/// `html.j2` or `$!#%@` can be written without issue. Although tags including
+/// spaces will still need to be set manually via the @raw.lang[`lang`]
+/// parameter.
+///
+/// However, this may cause some documents relying on the behavior of raw text
+/// starting like `C++` or `++C` to change, so we are giving a warning for those
+/// cases. To silence the warning and keep the current behavior, you can add a
+/// single space after the intended language tag or, if no tag is intended,
+/// after the initial backticks.
 #[elem(
     scope,
     title = "Raw Text / Code",
@@ -196,7 +320,10 @@ pub struct RawElem {
     #[default(false)]
     pub block: bool,
 
-    /// The language to syntax-highlight in.
+    /// The language to interpret the raw text as for syntax highlighting.
+    ///
+    /// In @html[HTML export], this sets the `data-lang` attribute of the
+    /// generated @html.code element.
     ///
     /// Apart from typical language tags known from Markdown, this supports the
     /// `{"typ"}`, `{"typc"}`, and `{"typm"}` tags for
