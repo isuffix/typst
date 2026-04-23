@@ -686,7 +686,17 @@ impl Debug for InnerNode {
 
 impl Debug for ErrorNode {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "Error: {:?} ({})", self.text, self.error.message)
+        if self.text.is_empty() && self.error.hints.is_empty() {
+            write!(f, "Error: {:?}", self.error.message)
+        } else {
+            let mut out = f.debug_struct("Error:");
+            out.field("text", &self.text);
+            out.field("message", &self.error.message);
+            for hint in &self.error.hints {
+                out.field("hint", hint);
+            }
+            out.finish()
+        }
     }
 }
 
@@ -1069,7 +1079,7 @@ Markup: 14 [
             "\
 Markup: 1 [
     Hash: \"#\",
-    Error: \"\" (expected expression),
+    Error: \"expected expression\",
 ]"
         );
         // A syntax error with multiple hints:
@@ -1078,7 +1088,12 @@ Markup: 1 [
             "\
 Markup: 2 [
     Hash: \"#\",
-    Error: \"#\" (the character `#` is not valid in code),
+    Error: {
+        text: \"#\",
+        message: \"the character `#` is not valid in code\",
+        hint: \"the preceding hash is causing this to parse in code mode\",
+        hint: \"try escaping the preceding hash: `\\\\#`\",
+    },
 ]"
         );
     }
