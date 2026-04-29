@@ -283,12 +283,12 @@ pub struct SourceDiagnostic {
     pub trace: EcoVec<Spanned<Tracepoint>>,
     /// Additional hints to the user.
     ///
-    /// - When the span is detached, these are generic hints. The CLI renders
-    ///   them as a list at the bottom, each prefixed with `hint: `.
+    /// - When the span is `None`, these are generic hints. The CLI renders them
+    ///   as a list at the bottom, each prefixed with `hint: `.
     ///
     /// - When a span is given, the hint is related to a secondary piece of code
     ///   and will be annotated at that code.
-    pub hints: EcoVec<Spanned<EcoString>>,
+    pub hints: EcoVec<(EcoString, Option<DiagSpan>)>,
 }
 
 /// The severity of a [`SourceDiagnostic`].
@@ -325,12 +325,16 @@ impl SourceDiagnostic {
 
     /// Adds a single hint to the diagnostic.
     pub fn hint(&mut self, hint: impl Into<EcoString>) {
-        self.hints.push(Spanned::detached(hint.into()));
+        self.hints.push((hint.into(), None));
     }
 
     /// Adds a single hint specific to a source code location to the diagnostic.
-    pub fn spanned_hint(&mut self, hint: impl Into<EcoString>, span: Span) {
-        self.hints.push(Spanned::new(hint.into(), span));
+    pub fn spanned_hint(
+        &mut self,
+        hint: impl Into<EcoString>,
+        span: impl Into<DiagSpan>,
+    ) {
+        self.hints.push((hint.into(), Some(span.into())));
     }
 
     /// Adds a single hint to the diagnostic.
@@ -340,14 +344,18 @@ impl SourceDiagnostic {
     }
 
     /// Adds a single hint specific to a source code location to the diagnostic.
-    pub fn with_spanned_hint(mut self, hint: impl Into<EcoString>, span: Span) -> Self {
+    pub fn with_spanned_hint(
+        mut self,
+        hint: impl Into<EcoString>,
+        span: impl Into<DiagSpan>,
+    ) -> Self {
         self.spanned_hint(hint, span);
         self
     }
 
     /// Adds multiple user-facing hints to the diagnostic.
     pub fn with_hints(mut self, hints: impl IntoIterator<Item = EcoString>) -> Self {
-        self.hints.extend(hints.into_iter().map(Spanned::detached));
+        self.hints.extend(hints.into_iter().map(|h| (h, None)));
         self
     }
 
@@ -366,7 +374,7 @@ impl From<SyntaxDiagnostic> for SourceDiagnostic {
             span,
             message,
             trace: eco_vec![],
-            hints: hints.into_iter().map(Spanned::detached).collect(),
+            hints,
         }
     }
 }

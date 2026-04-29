@@ -61,7 +61,7 @@ impl SyntaxNode {
 
     /// Get the hints for an error or warning mutably.
     #[track_caller]
-    fn hints_mut(&mut self) -> &mut EcoVec<EcoString> {
+    fn hints_mut(&mut self) -> &mut EcoVec<(EcoString, Option<SubRange>)> {
         match &mut self.0 {
             NodeWrapper::Node(Node::Leaf(_) | Node::Inner(_)) => {
                 panic!("expected an error or warning")
@@ -124,14 +124,30 @@ impl SyntaxNode {
     /// this is not an error or warning.
     #[track_caller]
     pub fn hint(&mut self, hint: impl Into<EcoString>) {
-        self.hints_mut().push(hint.into());
+        self.hints_mut().push((hint.into(), None));
+    }
+
+    /// Add a user-presentable hint to an existing error or warning at a
+    /// sub-range of the text. Panics if the range is empty or exceeds the
+    /// length of the wrapped text. Panics if this is not an error or warning
+    /// node.
+    #[track_caller]
+    pub fn hint_at(
+        &mut self,
+        Range { start, end }: Range<usize>,
+        hint: impl Into<EcoString>,
+    ) {
+        assert!(end <= self.len()); // This isn't checked by `SubRange::new`.
+        let sub_range = SubRange::new(start, end).expect("a valid sub-range");
+        self.hints_mut().push((hint.into(), Some(sub_range)));
     }
 
     /// Add mutliple hints while building an error or warning. Panics if
     /// this is not an error or warning.
     #[track_caller]
     pub fn with_hints(mut self, hints: impl IntoIterator<Item = EcoString>) -> Self {
-        self.hints_mut().extend(hints);
+        let iter = hints.into_iter().map(|h| (h, None));
+        self.hints_mut().extend(iter);
         self
     }
 
@@ -331,11 +347,18 @@ impl SyntaxNode {
                 }
             }
             NodeWrapper::Node(Node::Error(err)) => {
-                Arc::make_mut(err).span = map_span(offset, err.text.len())
+                let err = Arc::make_mut(err);
+                for (_hint, sub_range) in err.hints.make_mut() {
+                    update_sub_range(offset, sub_range);
+                }
+                err.span = map_span(offset, err.text.len());
             }
             NodeWrapper::Warning(warn) => {
                 let warn = Arc::make_mut(warn);
                 update_sub_range(offset, &mut warn.sub_range);
+                for (_hint, sub_range) in warn.hints.make_mut() {
+                    update_sub_range(offset, sub_range);
+                }
                 warn.child.synthesize_with(offset, map_span, update_sub_range);
             }
         }
@@ -849,7 +872,23 @@ pub struct SyntaxDiagnostic {
     pub message: EcoString,
     /// Additional hints to the user indicating how this issue could be avoided
     /// or worked around.
-    pub hints: EcoVec<EcoString>,
+    pub hints: EcoVec<(EcoString, Option<DiagSpan>)>,
+}
+
+/// Map a vector of hints with optional sub-ranges to one with optional
+/// diagnostic spans derived from a parent span.
+fn build_diagnostic_hints(
+    parent_span: Span,
+    hints: &EcoVec<(EcoString, Option<SubRange>)>,
+) -> EcoVec<(EcoString, Option<DiagSpan>)> {
+    hints
+        .iter()
+        .map(|(message, sub_range)| {
+            let diag_span =
+                sub_range.map(|sr| DiagSpan::from_source(parent_span, Some(sr)));
+            (message.clone(), diag_span)
+        })
+        .collect()
 }
 
 /// An error node in the untyped syntax tree.
@@ -863,7 +902,7 @@ struct ErrorNode {
     message: EcoString,
     /// Additional hints to the user indicating how this error could be avoided
     /// or worked around.
-    hints: EcoVec<EcoString>,
+    hints: EcoVec<(EcoString, Option<SubRange>)>,
 }
 
 impl ErrorNode {
@@ -883,7 +922,7 @@ impl ErrorNode {
             is_error: true,
             span: self.span.into(),
             message: self.message.clone(),
-            hints: self.hints.clone(),
+            hints: build_diagnostic_hints(self.span, &self.hints),
         }
     }
 
@@ -903,8 +942,14 @@ impl Debug for ErrorNode {
             let mut out = f.debug_struct("Error:");
             out.field("text", &self.text);
             out.field("message", &self.message);
-            for hint in &self.hints {
-                out.field("hint", hint);
+            for (hint, sub_range) in &self.hints {
+                let field = if let Some(sub_range) = sub_range {
+                    let selected = &self.text[sub_range.to_relative()];
+                    &format!("hint @({selected:?})")
+                } else {
+                    "hint"
+                };
+                out.field(field, hint);
             }
             out.finish()
         }
@@ -930,7 +975,7 @@ struct WarningWrapper {
     message: EcoString,
     /// Additional hints to the user indicating how this warning could be
     /// avoided or worked around.
-    hints: EcoVec<EcoString>,
+    hints: EcoVec<(EcoString, Option<SubRange>)>,
 }
 
 impl WarningWrapper {
@@ -941,11 +986,12 @@ impl WarningWrapper {
 
     /// Produce the syntax diagnostic for a warning.
     fn diagnostic(&self) -> SyntaxDiagnostic {
+        let span = self.child.span();
         SyntaxDiagnostic {
             is_error: false,
-            span: DiagSpan::from_source(self.child.span(), self.sub_range),
+            span: DiagSpan::from_source(span, self.sub_range),
             message: self.message.clone(),
-            hints: self.hints.clone(),
+            hints: build_diagnostic_hints(span, &self.hints),
         }
     }
 
@@ -978,8 +1024,8 @@ impl Debug for WarningWrapper {
         // field name when outputting the child.
         let mut out = f.debug_set();
         out.entry(&debug_field("message", &self.message, self.sub_range));
-        for hint in &self.hints {
-            out.entry(&debug_field("hint", hint, None));
+        for (hint, sub_range) in &self.hints {
+            out.entry(&debug_field("hint", hint, *sub_range));
         }
         out.entry(&self.child);
         out.finish()
@@ -1492,6 +1538,32 @@ Markup: 7 [
                 Text: \"=head\",
             ],
         ],
+    },
+]"
+        );
+
+        // An example for hints at sub-ranges:
+        let mut root = crate::parse("<unclosed");
+        let node = &mut root.children_mut()[0];
+        // Hint on the "unclosed label" error:
+        node.hint_at(0..1, "greater");
+        node.hint_at(3..8, "open!");
+        // Adding a warning with hints around the error:
+        node.warn_at(3..9, "opened?");
+        node.hint_at(0..9, "full text"); // no special treatment
+        assert_eq!(
+            format!("{root:#?}"),
+            "\
+Markup: 9 [
+    Warning: {
+        message @(\"closed\"): \"opened?\",
+        hint @(\"<unclosed\"): \"full text\",
+        Error: {
+            text: \"<unclosed\",
+            message: \"unclosed label\",
+            hint @(\"<\"): \"greater\",
+            hint @(\"close\"): \"open!\",
+        },
     },
 ]"
         );

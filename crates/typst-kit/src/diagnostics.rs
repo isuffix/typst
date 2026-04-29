@@ -9,7 +9,6 @@ use std::ops::Range;
 use codespan_reporting::diagnostic::{Diagnostic, Label};
 use codespan_reporting::files::Files;
 use codespan_reporting::term;
-use ecow::eco_format;
 use termcolor::{Color, ColorSpec, WriteColor};
 use typst_library::World;
 use typst_library::diag::{FileError, Severity, SourceDiagnostic, Tracepoint};
@@ -62,8 +61,8 @@ pub fn emit<'a>(
             diagnostic
                 .hints
                 .iter()
-                .filter(|s| s.span.is_detached())
-                .map(|s| (eco_format!("hint: {}", s.v)).into())
+                .filter(|(_hint, span)| span.is_none())
+                .map(|(hint, _span)| format!("hint: {hint}"))
                 .collect(),
         )
         .with_labels(
@@ -75,10 +74,11 @@ pub fn emit<'a>(
                     Some(Label::primary(id, range))
                 })
                 .into_iter()
-                .chain(diagnostic.hints.iter().filter_map(|hint| {
-                    let id = hint.span.id()?;
-                    let range = files.range(hint.span)?;
-                    Some(Label::secondary(id, range).with_message(&hint.v))
+                .chain(diagnostic.hints.iter().filter_map(|&(ref hint, span)| {
+                    let span = span?;
+                    let id = span.id()?;
+                    let range = files.range(span)?;
+                    Some(Label::secondary(id, range).with_message(hint))
                 }))
                 .collect(),
         );
