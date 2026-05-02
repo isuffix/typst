@@ -22,15 +22,12 @@ enum NodeWrapper {
     Warning(Arc<WarningWrapper>),
 }
 
-/// The internal representations of a node in the syntax tree.
+/// Data attached to a node.
 #[derive(Clone, Eq, PartialEq, Hash)]
 enum Node {
-    /// A leaf node containing text.
-    Leaf(LeafNode),
-    /// A reference-counted inner node containing an array of children.
-    Inner(Arc<InnerNode>),
-    /// An error node containing an error message for some text.
-    Error(Arc<ErrorNode>),
+    Leaf(EcoString, Span, SyntaxKind),
+    Inner(Arc<InnerNode>, Span, SyntaxKind),
+    Error(Arc<ErrorNode>, Span, SyntaxKind),
 }
 
 impl SyntaxNode {
@@ -54,14 +51,23 @@ impl SyntaxNode {
         }
     }
 
+    /// Get the span mutably.
+    fn span_mut(&mut self) -> &mut Span {
+        match self.node_mut() {
+            Node::Leaf(_, span, _)
+            | Node::Inner(_, span, _)
+            | Node::Error(_, span, _) => span,
+        }
+    }
+
     /// Get the hints for an error or warning mutably.
     #[track_caller]
     fn hints_mut(&mut self) -> &mut EcoVec<EcoString> {
         match &mut self.0 {
-            NodeWrapper::Node(Node::Leaf(_) | Node::Inner(_)) => {
+            NodeWrapper::Node(Node::Leaf(..) | Node::Inner(..)) => {
                 panic!("expected an error or warning")
             }
-            NodeWrapper::Node(Node::Error(err)) => &mut Arc::make_mut(err).error.hints,
+            NodeWrapper::Node(Node::Error(err, ..)) => &mut Arc::make_mut(err).hints,
             NodeWrapper::Warning(warn) => &mut Arc::make_mut(warn).hints,
         }
     }
@@ -69,23 +75,32 @@ impl SyntaxNode {
 
 impl SyntaxNode {
     /// Create a new leaf node.
+    #[track_caller]
     pub fn leaf(kind: SyntaxKind, text: impl Into<EcoString>) -> Self {
-        Self(NodeWrapper::Node(Node::Leaf(LeafNode::new(kind, text.into()))))
+        debug_assert!(!kind.is_error());
+        Self(NodeWrapper::Node(Node::Leaf(text.into(), Span::detached(), kind)))
     }
 
     /// Create a new inner node with children.
+    #[track_caller]
     pub fn inner(kind: SyntaxKind, children: Vec<SyntaxNode>) -> Self {
-        Self(NodeWrapper::Node(Node::Inner(Arc::new(InnerNode::new(kind, children)))))
+        debug_assert!(!kind.is_error());
+        Self(NodeWrapper::Node(Node::Inner(
+            Arc::new(InnerNode::new(children)),
+            Span::detached(),
+            kind,
+        )))
     }
 
     /// Create a new error node with a user-presentable message for the given
     /// text. Note that the message is the first argument, and the text causing
     /// the error is the second argument.
     pub fn error(message: impl Into<EcoString>, text: impl Into<EcoString>) -> Self {
-        Self(NodeWrapper::Node(Node::Error(Arc::new(ErrorNode::new(
-            message.into(),
-            text.into(),
-        )))))
+        Self(NodeWrapper::Node(Node::Error(
+            Arc::new(ErrorNode::new(message.into(), text.into())),
+            Span::detached(),
+            SyntaxKind::Error,
+        )))
     }
 
     /// Add a warning message to an existing node.
@@ -119,19 +134,15 @@ impl SyntaxNode {
         if matches!(kind, SyntaxKind::Error) {
             panic!("cannot create error placeholder");
         }
-        Self(NodeWrapper::Node(Node::Leaf(LeafNode {
-            kind,
-            text: EcoString::new(),
-            span: Span::detached(),
-        })))
+        Self(NodeWrapper::Node(Node::Leaf(EcoString::new(), Span::detached(), kind)))
     }
 
     /// The type of the node.
     pub fn kind(&self) -> SyntaxKind {
         match self.node() {
-            Node::Leaf(leaf) => leaf.kind,
-            Node::Inner(inner) => inner.kind,
-            Node::Error(_) => SyntaxKind::Error,
+            Node::Leaf(_, _, kind)
+            | Node::Inner(_, _, kind)
+            | Node::Error(_, _, kind) => *kind,
         }
     }
 
@@ -143,18 +154,18 @@ impl SyntaxNode {
     /// The byte length of the node in the source text.
     pub fn len(&self) -> usize {
         match self.node() {
-            Node::Leaf(leaf) => leaf.text.len(),
-            Node::Inner(inner) => inner.len,
-            Node::Error(err) => err.text.len(),
+            Node::Leaf(text, ..) => text.len(),
+            Node::Inner(inner, ..) => inner.len,
+            Node::Error(err, ..) => err.text.len(),
         }
     }
 
     /// The span of the node.
     pub fn span(&self) -> Span {
         match self.node() {
-            Node::Leaf(leaf) => leaf.span,
-            Node::Inner(inner) => inner.span,
-            Node::Error(err) => err.error.span,
+            Node::Leaf(_, span, _)
+            | Node::Inner(_, span, _)
+            | Node::Error(_, span, _) => *span,
         }
     }
 
@@ -164,9 +175,9 @@ impl SyntaxNode {
     pub fn text(&self) -> &EcoString {
         static EMPTY: EcoString = EcoString::new();
         match self.node() {
-            Node::Leaf(leaf) => &leaf.text,
-            Node::Inner(_) => &EMPTY,
-            Node::Error(err) => &err.text,
+            Node::Leaf(text, ..) => &text,
+            Node::Inner(..) => &EMPTY,
+            Node::Error(err, ..) => &err.text,
         }
     }
 
@@ -177,19 +188,19 @@ impl SyntaxNode {
         // This isn't fully efficient for warnings, but the efficient
         // version is more complicated to read/write due to partial moves.
         match self.0 {
-            NodeWrapper::Node(Node::Leaf(leaf)) => leaf.text,
-            NodeWrapper::Node(Node::Error(err)) => err.text.clone(),
-            NodeWrapper::Node(Node::Inner(_)) | NodeWrapper::Warning(_) => {
-                let mut text = EcoString::with_capacity(self.len());
+            NodeWrapper::Node(Node::Leaf(text, ..)) => text,
+            NodeWrapper::Node(Node::Error(err, ..)) => err.text.clone(),
+            NodeWrapper::Node(Node::Inner(..)) | NodeWrapper::Warning(_) => {
+                let mut buffer = EcoString::with_capacity(self.len());
                 self.traverse(|node| {
                     match node.node() {
-                        Node::Leaf(leaf) => text.push_str(&leaf.text),
-                        Node::Inner(_) => {}
-                        Node::Error(err) => text.push_str(&err.text),
+                        Node::Leaf(text, ..) => buffer.push_str(&text),
+                        Node::Inner(..) => {}
+                        Node::Error(err, ..) => buffer.push_str(&err.text),
                     }
                     node.children()
                 });
-                text
+                buffer
             }
         }
     }
@@ -197,8 +208,8 @@ impl SyntaxNode {
     /// The node's children.
     pub fn children(&self) -> std::slice::Iter<'_, SyntaxNode> {
         match self.node() {
-            Node::Leaf(_) | Node::Error(_) => [].iter(),
-            Node::Inner(inner) => inner.children.iter(),
+            Node::Leaf(..) | Node::Error(..) => [].iter(),
+            Node::Inner(inner, ..) => inner.children.iter(),
         }
     }
 
@@ -210,9 +221,9 @@ impl SyntaxNode {
     /// return an empty vector without traversing the tree if it will not.
     pub fn diagnosis(&self) -> Diagnosis {
         match &self.0 {
-            NodeWrapper::Node(Node::Leaf(_)) => Diagnosis::default(),
-            NodeWrapper::Node(Node::Inner(inner)) => inner.diagnosis,
-            NodeWrapper::Node(Node::Error(_)) => {
+            NodeWrapper::Node(Node::Leaf(..)) => Diagnosis::default(),
+            NodeWrapper::Node(Node::Inner(inner, ..)) => inner.diagnosis,
+            NodeWrapper::Node(Node::Error(..)) => {
                 Diagnosis { errors: true, warnings: false }
             }
             NodeWrapper::Warning(warn) => Diagnosis {
@@ -227,12 +238,12 @@ impl SyntaxNode {
         let mut errors = Vec::new();
         let mut warnings = Vec::new();
         self.traverse(|node| match &node.0 {
-            NodeWrapper::Node(Node::Inner(inner)) if inner.diagnosis.either() => {
+            NodeWrapper::Node(Node::Inner(inner, ..)) if inner.diagnosis.either() => {
                 inner.children.iter()
             }
-            NodeWrapper::Node(Node::Inner(_) | Node::Leaf(_)) => [].iter(),
-            NodeWrapper::Node(Node::Error(err)) => {
-                errors.push(err.error.clone());
+            NodeWrapper::Node(Node::Inner(..) | Node::Leaf(..)) => [].iter(),
+            NodeWrapper::Node(Node::Error(err, span, _)) => {
+                errors.push(err.diagnostic(*span));
                 [].iter()
             }
             NodeWrapper::Warning(warn) => {
@@ -255,9 +266,12 @@ impl SyntaxNode {
     /// The range is determined by mapping the node's ranges through the given
     /// `mapper`.
     pub fn synthesize_mapped(&mut self, id: FileId, mapper: &RangeMapper) {
-        self.synthesize_with(0, &mut |range| match mapper.map(range) {
+        self.synthesize_with(0, &mut |range| match mapper.map(range.clone()) {
             Some(mapped) => Span::from_range(id, mapped),
-            None => Span::detached(),
+            None => {
+                eprintln!("None, range: {range:?}");
+                Span::detached()
+            }
         });
     }
 
@@ -266,14 +280,19 @@ impl SyntaxNode {
     /// Should be called with `offset = 0` on the root node.
     fn synthesize_with(
         &mut self,
-        offset: usize,
+        mut offset: usize,
         f: &mut impl FnMut(Range<usize>) -> Span,
     ) {
+        *self.span_mut() = f(offset..offset + self.len());
         match self.node_mut() {
-            Node::Leaf(leaf) => leaf.span = f(offset..offset + leaf.text.len()),
-            Node::Inner(inner) => Arc::make_mut(inner).synthesize_with_impl(offset, f),
-            Node::Error(err) => {
-                Arc::make_mut(err).error.span = f(offset..offset + err.text.len())
+            Node::Leaf(..) | Node::Error(..) => {}
+            Node::Inner(inner, span, _) => {
+                let inner = Arc::make_mut(inner);
+                inner.upper = span.number();
+                for child in &mut inner.children {
+                    child.synthesize_with(offset, f);
+                    offset += child.len();
+                }
             }
         }
     }
@@ -281,12 +300,15 @@ impl SyntaxNode {
     /// Whether the two syntax nodes are the same apart from spans.
     pub fn spanless_eq(&self, other: &Self) -> bool {
         match (&self.0, &other.0) {
-            (NodeWrapper::Node(a), NodeWrapper::Node(b)) => match (a, b) {
-                (Node::Leaf(a), Node::Leaf(b)) => a.spanless_eq(b),
-                (Node::Inner(a), Node::Inner(b)) => a.spanless_eq(b),
-                (Node::Error(a), Node::Error(b)) => a.spanless_eq(b),
-                _ => false,
-            },
+            (NodeWrapper::Node(a), NodeWrapper::Node(b)) => {
+                self.kind() == other.kind()
+                    && match (a, b) {
+                        (Node::Leaf(a, ..), Node::Leaf(b, ..)) => a == b,
+                        (Node::Inner(a, ..), Node::Inner(b, ..)) => a.spanless_eq(b),
+                        (Node::Error(a, ..), Node::Error(b, ..)) => a == b,
+                        _ => false,
+                    }
+            }
             (NodeWrapper::Warning(a), NodeWrapper::Warning(b)) => a.spanless_eq(b),
             _ => false,
         }
@@ -298,12 +320,11 @@ impl SyntaxNode {
     ///
     /// Don't use this for converting to an error!
     #[track_caller]
-    pub(super) fn convert_to_kind(&mut self, kind: SyntaxKind) {
-        debug_assert!(!kind.is_error());
+    pub(super) fn convert_to_kind(&mut self, new_kind: SyntaxKind) {
+        debug_assert!(!new_kind.is_error());
         match self.node_mut() {
-            Node::Leaf(leaf) => leaf.kind = kind,
-            Node::Inner(inner) => Arc::make_mut(inner).kind = kind,
-            Node::Error(_) => panic!("cannot convert error"),
+            Node::Leaf(_, _, kind) | Node::Inner(_, _, kind) => *kind = new_kind,
+            Node::Error(..) => panic!("cannot convert error"),
         }
     }
 
@@ -338,16 +359,20 @@ impl SyntaxNode {
         &mut self,
         id: FileId,
         within: Range<u64>,
-    ) -> NumberingResult {
+    ) -> NumberingResult<()> {
         if within.start >= within.end {
             return Err(Unnumberable);
         }
 
         let mid = Span::from_number(id, (within.start + within.end) / 2).unwrap();
         match self.node_mut() {
-            Node::Leaf(leaf) => leaf.span = mid,
-            Node::Inner(inner) => Arc::make_mut(inner).numberize(id, None, within)?,
-            Node::Error(err) => Arc::make_mut(err).error.span = mid,
+            Node::Leaf(_, span, _) | Node::Error(_, span, _) => *span = mid,
+            Node::Inner(inner, span, ..) => {
+                let inner = Arc::make_mut(inner);
+                if let Some(new_span) = inner.numberize(id, None, within)? {
+                    *span = new_span;
+                }
+            }
         }
 
         Ok(())
@@ -372,28 +397,28 @@ impl SyntaxNode {
 
     /// Whether this is a leaf node.
     pub(super) fn is_leaf(&self) -> bool {
-        matches!(self.node(), Node::Leaf(_))
+        matches!(self.node(), Node::Leaf(..))
         // TODO: Should we also treat non-empty errors as leaves?
     }
 
     /// Whether this is an inner node.
     pub(super) fn is_inner(&self) -> bool {
-        matches!(self.node(), Node::Inner(_))
+        matches!(self.node(), Node::Inner(..))
     }
 
     /// The number of descendants, including the node itself.
     pub(super) fn descendants(&self) -> usize {
         match self.node() {
-            Node::Leaf(_) | Node::Error(_) => 1,
-            Node::Inner(inner) => inner.descendants,
+            Node::Leaf(..) | Node::Error(..) => 1,
+            Node::Inner(inner, ..) => inner.descendants,
         }
     }
 
     /// The node's children, mutably.
     pub(super) fn children_mut(&mut self) -> &mut [SyntaxNode] {
         match self.node_mut() {
-            Node::Leaf(_) | Node::Error(_) => &mut [],
-            Node::Inner(inner) => &mut Arc::make_mut(inner).children,
+            Node::Leaf(..) | Node::Error(..) => &mut [],
+            Node::Inner(inner, ..) => &mut Arc::make_mut(inner).children,
         }
     }
 
@@ -404,11 +429,15 @@ impl SyntaxNode {
         &mut self,
         range: Range<usize>,
         replacement: Vec<SyntaxNode>,
-    ) -> NumberingResult {
+    ) -> NumberingResult<()> {
         match self.node_mut() {
-            Node::Leaf(_) | Node::Error(_) => Ok(()),
-            Node::Inner(inner) => {
-                Arc::make_mut(inner).replace_children(range, replacement)
+            Node::Leaf(..) | Node::Error(..) => Ok(()),
+            Node::Inner(inner, span, _) => {
+                let inner = Arc::make_mut(inner);
+                if let Some(new) = inner.replace_children(*span, range, replacement)? {
+                    *span = new;
+                }
+                Ok(())
             }
         }
     }
@@ -422,8 +451,8 @@ impl SyntaxNode {
         new_descendants: usize,
     ) {
         match self.node_mut() {
-            Node::Leaf(_) | Node::Error(_) => {}
-            Node::Inner(inner) => Arc::make_mut(inner).update_parent(
+            Node::Leaf(..) | Node::Error(..) => {}
+            Node::Inner(inner, ..) => Arc::make_mut(inner).update_parent(
                 prev_len,
                 new_len,
                 prev_descendants,
@@ -435,9 +464,8 @@ impl SyntaxNode {
     /// The upper bound of assigned numbers in this subtree.
     pub(super) fn upper(&self) -> u64 {
         match self.node() {
-            Node::Leaf(leaf) => leaf.span.number() + 1,
-            Node::Inner(inner) => inner.upper,
-            Node::Error(err) => err.error.span.number() + 1,
+            Node::Leaf(_, span, _) | Node::Error(_, span, _) => span.number() + 1,
+            Node::Inner(inner, ..) => inner.upper,
         }
     }
 }
@@ -445,9 +473,18 @@ impl SyntaxNode {
 impl Debug for SyntaxNode {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match &self.0 {
-            NodeWrapper::Node(Node::Leaf(leaf)) => leaf.fmt(f),
-            NodeWrapper::Node(Node::Inner(inner)) => inner.fmt(f),
-            NodeWrapper::Node(Node::Error(err)) => err.fmt(f),
+            NodeWrapper::Node(Node::Leaf(text, _, kind)) => {
+                write!(f, "{:?}: {:?}", kind, text)
+            }
+            NodeWrapper::Node(Node::Inner(inner, _, kind)) => {
+                write!(f, "{:?}: {}", kind, inner.len)?;
+                if !inner.children.is_empty() {
+                    f.write_str(" ")?;
+                    f.debug_list().entries(&inner.children).finish()?;
+                }
+                Ok(())
+            }
+            NodeWrapper::Node(Node::Error(err, ..)) => err.fmt(f),
             NodeWrapper::Warning(warn) => warn.fmt(f),
         }
     }
@@ -459,48 +496,11 @@ impl Default for SyntaxNode {
     }
 }
 
-/// A leaf node in the untyped syntax tree.
-#[derive(Clone, Eq, PartialEq, Hash)]
-struct LeafNode {
-    /// What kind of node this is (each kind would have its own struct in a
-    /// strongly typed AST).
-    kind: SyntaxKind,
-    /// The source text of the node.
-    text: EcoString,
-    /// The node's span.
-    span: Span,
-}
-
-impl LeafNode {
-    /// Create a new leaf node.
-    #[track_caller]
-    fn new(kind: SyntaxKind, text: EcoString) -> Self {
-        debug_assert!(!kind.is_error());
-        Self { kind, text, span: Span::detached() }
-    }
-
-    /// Whether the two leaf nodes are the same apart from spans.
-    fn spanless_eq(&self, other: &Self) -> bool {
-        self.kind == other.kind && self.text == other.text
-    }
-}
-
-impl Debug for LeafNode {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "{:?}: {:?}", self.kind, self.text)
-    }
-}
-
 /// An inner node in the untyped syntax tree.
 #[derive(Clone, Eq, PartialEq, Hash)]
 struct InnerNode {
-    /// What kind of node this is (each kind would have its own struct in a
-    /// strongly typed AST).
-    kind: SyntaxKind,
     /// The byte length of the node in the source.
     len: usize,
-    /// The node's span.
-    span: Span,
     /// The number of nodes in the whole subtree, including this node.
     descendants: usize,
     /// Whether this node or any of its children contain an error/warning
@@ -514,10 +514,7 @@ struct InnerNode {
 
 impl InnerNode {
     /// Create a new inner node with the given kind and children.
-    #[track_caller]
-    fn new(kind: SyntaxKind, children: Vec<SyntaxNode>) -> Self {
-        debug_assert!(!kind.is_error());
-
+    fn new(children: Vec<SyntaxNode>) -> Self {
         let mut len = 0;
         let mut descendants = 1;
         let mut diagnosis = Diagnosis::default();
@@ -528,29 +525,7 @@ impl InnerNode {
             diagnosis = diagnosis.or(child.diagnosis());
         }
 
-        Self {
-            kind,
-            len,
-            span: Span::detached(),
-            descendants,
-            diagnosis,
-            upper: 0,
-            children,
-        }
-    }
-
-    /// Set a synthetic span for the node and all its descendants.
-    fn synthesize_with_impl(
-        &mut self,
-        mut offset: usize,
-        f: &mut impl FnMut(Range<usize>) -> Span,
-    ) {
-        self.span = f(offset..offset + self.len);
-        self.upper = self.span.number();
-        for child in &mut self.children {
-            child.synthesize_with(offset, f);
-            offset += child.len();
-        }
+        Self { len, descendants, diagnosis, upper: 0, children }
     }
 
     /// Assign span numbers `within` an interval to this node's subtree or just
@@ -560,10 +535,10 @@ impl InnerNode {
         id: FileId,
         range: Option<Range<usize>>,
         within: Range<u64>,
-    ) -> NumberingResult {
+    ) -> NumberingResult<Option<Span>> {
         // Determine how many nodes we will number.
         let descendants = match &range {
-            Some(range) if range.is_empty() => return Ok(()),
+            Some(range) if range.is_empty() => return Ok(None),
             Some(range) => self.children[range.clone()]
                 .iter()
                 .map(SyntaxNode::descendants)
@@ -585,9 +560,10 @@ impl InnerNode {
 
         // Number the node itself.
         let mut start = within.start;
+        let mut span = None;
         if range.is_none() {
             let end = start + stride;
-            self.span = Span::from_number(id, (start + end) / 2).unwrap();
+            span = Some(Span::from_number(id, (start + end) / 2).unwrap());
             self.upper = within.end;
             start = end;
         }
@@ -600,13 +576,12 @@ impl InnerNode {
             start = end;
         }
 
-        Ok(())
+        Ok(span)
     }
 
     /// Whether the two inner nodes are the same apart from spans.
     fn spanless_eq(&self, other: &Self) -> bool {
-        self.kind == other.kind
-            && self.len == other.len
+        self.len == other.len
             && self.descendants == other.descendants
             && self.diagnosis == other.diagnosis
             && self.children.len() == other.children.len()
@@ -622,10 +597,11 @@ impl InnerNode {
     /// May have mutated the children if it returns `Err(_)`.
     fn replace_children(
         &mut self,
+        span: Span,
         mut range: Range<usize>,
         replacement: Vec<SyntaxNode>,
-    ) -> NumberingResult {
-        let Some(id) = self.span.id() else { return Err(Unnumberable) };
+    ) -> NumberingResult<Option<Span>> {
+        let Some(id) = span.id() else { return Err(Unnumberable) };
         let mut replacement_range = 0..replacement.len();
 
         // Trim off common prefix.
@@ -700,7 +676,7 @@ impl InnerNode {
                 .start
                 .checked_sub(1)
                 .and_then(|i| self.children.get(i))
-                .map_or(self.span.number() + 1, |child| child.upper());
+                .map_or(span.number() + 1, |child| child.upper());
 
             // The upper bound for renumbering is either
             // - the span number of the first child after the to-be-renumbered
@@ -714,8 +690,8 @@ impl InnerNode {
 
             // Try to renumber.
             let within = start_number..end_number;
-            if self.numberize(id, Some(renumber), within).is_ok() {
-                return Ok(());
+            if let Ok(maybe_span) = self.numberize(id, Some(renumber), within) {
+                return Ok(maybe_span);
             }
 
             // If it didn't even work with all children, we give up.
@@ -740,17 +716,6 @@ impl InnerNode {
         self.len = self.len + new_len - prev_len;
         self.descendants = self.descendants + new_descendants - prev_descendants;
         self.diagnosis = Diagnosis::any(&self.children);
-    }
-}
-
-impl Debug for InnerNode {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "{:?}: {}", self.kind, self.len)?;
-        if !self.children.is_empty() {
-            f.write_str(" ")?;
-            f.debug_list().entries(&self.children).finish()?;
-        }
-        Ok(())
     }
 }
 
@@ -808,41 +773,39 @@ pub struct SyntaxDiagnostic {
 struct ErrorNode {
     /// The source text of the node.
     text: EcoString,
-    /// The syntax error.
-    error: SyntaxDiagnostic,
+    /// The error message.
+    message: EcoString,
+    /// Additional hints to the user indicating how this error could be avoided
+    /// or worked around.
+    hints: EcoVec<EcoString>,
 }
 
 impl ErrorNode {
     /// Create a new error node.
     fn new(message: EcoString, text: EcoString) -> Self {
-        Self {
-            text,
-            error: SyntaxDiagnostic {
-                is_error: true,
-                span: Span::detached(),
-                message,
-                hints: eco_vec![],
-            },
-        }
+        Self { text, message, hints: eco_vec![] }
     }
 
-    /// Whether the two error nodes are the same apart from spans.
-    fn spanless_eq(&self, other: &Self) -> bool {
-        self.text == other.text
-            && self.error.message == other.error.message
-            && self.error.hints == other.error.hints
+    /// Produce the syntax diagnostic for an error.
+    fn diagnostic(&self, span: Span) -> SyntaxDiagnostic {
+        SyntaxDiagnostic {
+            is_error: true,
+            span,
+            message: self.message.clone(),
+            hints: self.hints.clone(),
+        }
     }
 }
 
 impl Debug for ErrorNode {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        if self.text.is_empty() && self.error.hints.is_empty() {
-            write!(f, "Error: {:?}", self.error.message)
+        if self.text.is_empty() && self.hints.is_empty() {
+            write!(f, "Error: {:?}", self.message)
         } else {
             let mut out = f.debug_struct("Error:");
             out.field("text", &self.text);
-            out.field("message", &self.error.message);
-            for hint in &self.error.hints {
+            out.field("message", &self.message);
+            for hint in &self.hints {
                 out.field("hint", hint);
             }
             out.finish()
@@ -976,13 +939,10 @@ impl<'a> LinkedNode<'a> {
             return Some(self.clone());
         }
 
-        if let Node::Inner(inner) = self.node.node() {
+        if self.is_inner() && self.span().number() < span.number() {
             // The parent of a subtree has a smaller span number than all of its
             // descendants. Therefore, we can bail out early if the target span's
             // number is smaller than our number.
-            if span.number() < inner.span.number() {
-                return None;
-            }
 
             // Use `self.children()`, not `inner.children()` to preserve being
             // in a `LinkedNode`.
@@ -1300,7 +1260,7 @@ impl DoubleEndedIterator for LinkedChildren<'_> {
 impl ExactSizeIterator for LinkedChildren<'_> {}
 
 /// Result of numbering a node within an interval.
-pub(super) type NumberingResult = Result<(), Unnumberable>;
+pub(super) type NumberingResult<T> = Result<T, Unnumberable>;
 
 /// Indicates that a node cannot be numbered within a given interval.
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
