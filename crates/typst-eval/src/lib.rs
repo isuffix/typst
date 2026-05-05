@@ -24,14 +24,14 @@ use self::binding::*;
 use self::methods::*;
 
 use comemo::{Track, Tracked, TrackedMut};
-use typst_library::diag::{SourceResult, bail};
+use typst_library::diag::{At as _, SourceResult, bail};
 use typst_library::engine::{Engine, Route, Sink, Traced};
 use typst_library::foundations::{Context, Module, NativeElement, Scope, Scopes, Value};
 use typst_library::introspection::{EmptyIntrospector, Introspector};
 use typst_library::math::EquationElem;
 use typst_library::routines::SpanMode;
 use typst_library::{Library, World};
-use typst_syntax::{Source, SyntaxMode, ast, parse, parse_code, parse_math};
+use typst_syntax::{Source, Span, SyntaxMode, ast, parse, parse_code, parse_math};
 use typst_utils::{LazyHash, Protected};
 
 /// Evaluate a source file and return the resulting module.
@@ -120,7 +120,9 @@ pub fn eval_string(
     match spans {
         SpanMode::Uniform(span) if span.is_detached() => {}
         SpanMode::Uniform(span) => root.synthesize(span),
-        SpanMode::Mapped { id, mapper } => root.synthesize_mapped(id, mapper),
+        SpanMode::Mapped { id, mapper } => {
+            root.synthesize_mapped(id, mapper).at(Span::detached())?;
+        }
     }
 
     // Check for errors or warnings in the syntax tree before evaluating it.

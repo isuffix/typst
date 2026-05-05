@@ -290,34 +290,50 @@ impl SyntaxNode {
     ///
     /// The range is determined by mapping the node's ranges through the given
     /// `mapper`.
-    pub fn synthesize_mapped(&mut self, id: FileId, mapper: &RangeMapper) {
-        self.synthesize_with(0, &mut |range| match mapper.map(range) {
-            Some(mapped) => Span::from_range(id, mapped),
-            None => Span::detached(),
-        });
+    ///
+    /// Returns an error with the mapper's length if it was shorter than the
+    /// length of the source text.
+    pub fn synthesize_mapped(
+        &mut self,
+        id: FileId,
+        mapper: &RangeMapper,
+    ) -> Result<(), EcoString> {
+        if mapper.total < self.len() {
+            return Err(eco_format!(
+                "text length ({}) is greater than mapper length ({})",
+                self.len(),
+                mapper.total,
+            ));
+        }
+        self.synthesize_with(0, id, mapper);
+        Ok(())
     }
 
     /// Set a custom span for each node gives its range.
     ///
     /// Should be called with `offset = 0` on the root node.
-    fn synthesize_with(
-        &mut self,
-        mut offset: usize,
-        f: &mut impl FnMut(Range<usize>) -> Span,
-    ) {
-        match self.node_mut() {
-            Node::Leaf(leaf) => leaf.span = f(offset..offset + leaf.text.len()),
-            Node::Inner(inner) => {
+    fn synthesize_with(&mut self, mut offset: usize, id: FileId, mapper: &RangeMapper) {
+        let f = |len| {
+            let mapped = mapper.map(offset..offset + len);
+            Span::from_range(id, mapped)
+        };
+        match &mut self.0 {
+            NodeWrapper::Node(Node::Leaf(leaf)) => leaf.span = f(leaf.text.len()),
+            NodeWrapper::Node(Node::Inner(inner)) => {
                 let inner = Arc::make_mut(inner);
-                inner.span = f(offset..offset + inner.len);
+                inner.span = f(inner.len);
                 inner.upper = inner.span.number();
                 for child in &mut inner.children {
-                    child.synthesize_with(offset, f);
+                    child.synthesize_with(offset, id, mapper);
                     offset += child.len();
                 }
             }
-            Node::Error(err) => {
-                Arc::make_mut(err).error.span = f(offset..offset + err.text.len())
+            NodeWrapper::Node(Node::Error(err)) => {
+                Arc::make_mut(err).error.span = f(err.text.len())
+            }
+            NodeWrapper::Warning(warn) => {
+                let warn = Arc::make_mut(warn);
+                warn.child.synthesize_with(offset, id, mapper);
             }
         }
     }

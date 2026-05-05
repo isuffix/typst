@@ -16,7 +16,7 @@ use typst::model::{Destination, EarlyLinkResolver, LinkElem, ResolvedLink};
 use typst::routines::SpanMode;
 use typst::syntax::package::{PackageSpec, PackageVersion};
 use typst::syntax::{
-    FileId, RangeMapper, RootedPath, Source, Spanned, SyntaxMode, VirtualPath,
+    FileId, RangeMapper, RootedPath, Source, Span, Spanned, SyntaxMode, VirtualPath,
     VirtualRoot,
 };
 use typst::text::{Font, FontBook};
@@ -303,7 +303,7 @@ fn eval_mapped(
     }
 
     let id = path.v.resolve_if_some(path.span.id()).at(path.span)?.intern();
-    let mapper = RangeMapper::new(ranges.into_iter().map(|p| p.0));
+    let mapper = RangeMapper::new(ranges.into_iter().map(|p| p.0)).at(Span::detached())?;
 
     typst_eval::eval_string(
         engine.world,
