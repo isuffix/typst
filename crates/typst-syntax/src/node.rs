@@ -1,3 +1,4 @@
+use std::cell::LazyCell;
 use std::fmt::{self, Debug, Display, Formatter};
 use std::ops::{Deref, Range};
 use std::rc::Rc;
@@ -7,7 +8,10 @@ use ecow::{EcoString, EcoVec, eco_format, eco_vec};
 use typst_utils::debug;
 
 use crate::kind::ModeAfter;
-use crate::{FileId, RangeMapper, Span, SpanKind, SpanNumber, SyntaxKind, SyntaxMode};
+use crate::{
+    DiagSpan, FileId, RangeMapper, Span, SpanKind, SpanNumber, SubRange, SyntaxKind,
+    SyntaxMode,
+};
 
 /// A node in the untyped syntax tree.
 #[derive(Clone, Eq, PartialEq, Hash)]
@@ -93,6 +97,25 @@ impl SyntaxNode {
     pub fn warn(&mut self, message: impl Into<EcoString>) {
         *self = Self(NodeWrapper::Warning(Arc::new(WarningWrapper::new(
             std::mem::take(self),
+            None,
+            message.into(),
+        ))));
+    }
+
+    /// Add a warning around this node at a particular sub-range of the node's
+    /// text. Panics if the range is empty or exceeds the length of the wrapped
+    /// text.
+    #[track_caller]
+    pub fn warn_at(
+        &mut self,
+        Range { start, end }: Range<usize>,
+        message: impl Into<EcoString>,
+    ) {
+        assert!(end <= self.len()); // This isn't checked by `SubRange::new`.
+        let sub_range = SubRange::new(start, end).expect("a valid sub-range");
+        *self = Self(NodeWrapper::Warning(Arc::new(WarningWrapper::new(
+            std::mem::take(self),
+            Some(sub_range),
             message.into(),
         ))));
     }
@@ -248,7 +271,9 @@ impl SyntaxNode {
 
     /// Set a synthetic span for the node and all its descendants.
     pub fn synthesize(&mut self, span: Span) {
-        self.synthesize_with(0, &mut |_, _| span);
+        // Sub-ranges are removed since their overall range will not be
+        // accurate.
+        self.synthesize_with(0, &|_, _| span, &|_, sub_range| *sub_range = None);
     }
 
     /// Set a raw range span for each node.
@@ -271,9 +296,15 @@ impl SyntaxNode {
                 mapper.total,
             ));
         }
-        self.synthesize_with(0, &|offset, len| {
-            Span::from_range(id, mapper.map(offset..offset + len))
-        });
+        self.synthesize_with(
+            0,
+            &|offset, len| Span::from_range(id, mapper.map(offset..offset + len)),
+            &|offset, sub_range| {
+                if let Some(sr) = sub_range {
+                    *sr = mapper.map_sub_range(offset, *sr);
+                }
+            },
+        );
         Ok(())
     }
 
@@ -284,20 +315,28 @@ impl SyntaxNode {
         &mut self,
         mut offset: usize,
         map_span: &impl Fn(usize, usize) -> Span,
+        update_sub_range: &impl Fn(usize, &mut Option<SubRange>),
     ) {
-        match self.node_mut() {
-            Node::Leaf(leaf) => leaf.span = map_span(offset, leaf.text.len()),
-            Node::Inner(inner) => {
+        match &mut self.0 {
+            NodeWrapper::Node(Node::Leaf(leaf)) => {
+                leaf.span = map_span(offset, leaf.text.len())
+            }
+            NodeWrapper::Node(Node::Inner(inner)) => {
                 let inner = Arc::make_mut(inner);
                 inner.span = map_span(offset, inner.len);
                 inner.upper = inner.span.number();
                 for child in &mut inner.children {
-                    child.synthesize_with(offset, map_span);
+                    child.synthesize_with(offset, map_span, update_sub_range);
                     offset += child.len();
                 }
             }
-            Node::Error(err) => {
+            NodeWrapper::Node(Node::Error(err)) => {
                 Arc::make_mut(err).span = map_span(offset, err.text.len())
+            }
+            NodeWrapper::Warning(warn) => {
+                let warn = Arc::make_mut(warn);
+                update_sub_range(offset, &mut warn.sub_range);
+                warn.child.synthesize_with(offset, map_span, update_sub_range);
             }
         }
     }
@@ -805,7 +844,7 @@ pub struct SyntaxDiagnostic {
     /// `true` if the diagnostic is an error, `false` if it's a warning.
     pub is_error: bool,
     /// The span targeted by the diagnostic.
-    pub span: Span,
+    pub span: DiagSpan,
     /// The main diagnostic message.
     pub message: EcoString,
     /// Additional hints to the user indicating how this issue could be avoided
@@ -842,7 +881,7 @@ impl ErrorNode {
     fn diagnostic(&self) -> SyntaxDiagnostic {
         SyntaxDiagnostic {
             is_error: true,
-            span: self.span,
+            span: self.span.into(),
             message: self.message.clone(),
             hints: self.hints.clone(),
         }
@@ -882,6 +921,11 @@ impl Debug for ErrorNode {
 struct WarningWrapper {
     /// The wrapped syntax node.
     child: SyntaxNode,
+    /// A relative sub-range for targeting text not grouped by an existing span.
+    ///
+    /// Warnings may need to target a range of text that isn't actually grouped
+    /// by the syntax tree, this sub-range can select that text.
+    sub_range: Option<SubRange>,
     /// The warning message.
     message: EcoString,
     /// Additional hints to the user indicating how this warning could be
@@ -891,15 +935,15 @@ struct WarningWrapper {
 
 impl WarningWrapper {
     /// Wrap an existing syntax node in a warning node.
-    fn new(child: SyntaxNode, message: EcoString) -> Self {
-        Self { child, message, hints: eco_vec![] }
+    fn new(child: SyntaxNode, sub_range: Option<SubRange>, message: EcoString) -> Self {
+        Self { child, sub_range, message, hints: eco_vec![] }
     }
 
     /// Produce the syntax diagnostic for a warning.
     fn diagnostic(&self) -> SyntaxDiagnostic {
         SyntaxDiagnostic {
             is_error: false,
-            span: self.child.span(),
+            span: DiagSpan::from_source(self.child.span(), self.sub_range),
             message: self.message.clone(),
             hints: self.hints.clone(),
         }
@@ -915,13 +959,27 @@ impl WarningWrapper {
 
 impl Debug for WarningWrapper {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        let full_text = LazyCell::new(|| self.child.clone().into_text());
+        let debug_field = |field, message, sub_range: Option<SubRange>| {
+            // Inner closure has `move`, so need to explicitly capture by ref.
+            let full_text = &full_text;
+            debug(move |f| {
+                if let Some(sr) = sub_range {
+                    let selected = &full_text[sr.to_relative()];
+                    write!(f, "{field} @({selected:?}): {message:?}")
+                } else {
+                    write!(f, "{field}: {message:?}")
+                }
+            })
+        };
+
         write!(f, "Warning: ")?;
         // Use `debug_set` instead of `debug_struct` so we don't have to add a
         // field name when outputting the child.
         let mut out = f.debug_set();
-        out.entry(&debug(|f| write!(f, "message: {:?}", self.message)));
+        out.entry(&debug_field("message", &self.message, self.sub_range));
         for hint in &self.hints {
-            out.entry(&debug(|f| write!(f, "hint: {hint:?}")));
+            out.entry(&debug_field("hint", hint, None));
         }
         out.entry(&self.child);
         out.finish()
@@ -1407,6 +1465,32 @@ Markup: 2 [
             Star: \"*\",
             Markup: 0,
             Star: \"*\",
+        ],
+    },
+]"
+        );
+    }
+
+    #[test]
+    fn test_debug_sub_range() {
+        // An example warning for text at a sub-range:
+        let mut root = crate::parse("= =head");
+        let heading_body = &mut root.children_mut()[0];
+        heading_body.warn_at(0..3, "equal space equal!");
+        heading_body.hint("try equal equal space?");
+        assert_eq!(
+            format!("{root:#?}"),
+            "\
+Markup: 7 [
+    Warning: {
+        message @(\"= =\"): \"equal space equal!\",
+        hint: \"try equal equal space?\",
+        Heading: 7 [
+            HeadingMarker: \"=\",
+            Space: \" \",
+            Markup: 5 [
+                Text: \"=head\",
+            ],
         ],
     },
 ]"
