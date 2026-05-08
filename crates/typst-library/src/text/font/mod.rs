@@ -166,7 +166,7 @@ impl Font {
         let top = match top_edge {
             TopEdge::Metric(metric) => match metric.try_into() {
                 Ok(metric) => self.metrics().vertical(metric).at(font_size),
-                Err(_) => match bounds {
+                Err(()) => match bounds {
                     TextEdgeBounds::Zero => Abs::zero(),
                     TextEdgeBounds::Frame(frame) => frame.ascent(),
                     TextEdgeBounds::Glyph(gid) => bbox(gid, |b| b.y_max),
@@ -178,7 +178,7 @@ impl Font {
         let bottom = match bottom_edge {
             BottomEdge::Metric(metric) => match metric.try_into() {
                 Ok(metric) => -self.metrics().vertical(metric).at(font_size),
-                Err(_) => match bounds {
+                Err(()) => match bounds {
                     TextEdgeBounds::Zero => Abs::zero(),
                     TextEdgeBounds::Frame(frame) => frame.descent(),
                     TextEdgeBounds::Glyph(gid) => -bbox(gid, |b| b.y_min),
