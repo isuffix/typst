@@ -96,7 +96,7 @@ impl<'a, 'b> Composer<'a, 'b, '_, '_> {
                     *self.work = checkpoint.clone();
                 }
                 Err(Stop::Error(err)) => return Err(err),
-            };
+            }
         };
         drop(checkpoint);
 

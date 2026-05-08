@@ -482,7 +482,7 @@ fn format_color(f: &mut Formatter, val: &Object) -> Result<(), ()> {
     let Object::Array(array) = val else { return Err(()) };
     if array.raw_iter().count() != 3 {
         return Err(());
-    };
+    }
     let mut iter = array.iter::<Number>();
     let [r, g, b] = std::array::from_fn(|_| {
         let n = iter.next().unwrap().as_f64();
