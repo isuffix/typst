@@ -68,7 +68,7 @@ impl Font {
         let metrics = FontMetrics::from_ttf(&ttf);
         let info = FontInfo::from_ttf(&ttf)?;
 
-        Some(Self(Arc::new(FontInner { data, index, info, metrics, ttf, rusty })))
+        Some(Self(Arc::new(FontInner { index, info, metrics, ttf, rusty, data })))
     }
 
     /// Parse all fonts in the given data.
