@@ -1108,7 +1108,7 @@ impl TryInto<VerticalFontMetric> for TopEdgeMetric {
             Self::CapHeight => Ok(VerticalFontMetric::CapHeight),
             Self::XHeight => Ok(VerticalFontMetric::XHeight),
             Self::Baseline => Ok(VerticalFontMetric::Baseline),
-            _ => Err(()),
+            Self::Bounds => Err(()),
         }
     }
 }
@@ -1150,7 +1150,7 @@ impl TryInto<VerticalFontMetric> for BottomEdgeMetric {
         match self {
             Self::Baseline => Ok(VerticalFontMetric::Baseline),
             Self::Descender => Ok(VerticalFontMetric::Descender),
-            _ => Err(()),
+            Self::Bounds => Err(()),
         }
     }
 }

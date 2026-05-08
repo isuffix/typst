@@ -728,7 +728,7 @@ impl Closure {
             ClosureNode::Closure(ref node) => {
                 node.cast::<ast::Closure>()?.name().map(|ident| ident.as_str())
             }
-            _ => None,
+            ClosureNode::Context(_) => None,
         }
     }
 

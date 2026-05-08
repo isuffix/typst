@@ -40,7 +40,7 @@ impl MathFragment {
             Self::Glyph(glyph) => glyph.size,
             Self::Frame(fragment) => fragment.frame.size(),
             Self::Space(amount) => Size::with_x(*amount),
-            _ => Size::zero(),
+            Self::Tag(_) => Size::zero(),
         }
     }
 
@@ -49,7 +49,7 @@ impl MathFragment {
             Self::Glyph(glyph) => glyph.size.x,
             Self::Frame(fragment) => fragment.frame.width(),
             Self::Space(amount) => *amount,
-            _ => Abs::zero(),
+            Self::Tag(_) => Abs::zero(),
         }
     }
 
@@ -167,7 +167,7 @@ impl MathFragment {
                 frame.push(Point::zero(), FrameItem::Tag(tag));
                 frame
             }
-            _ => Frame::soft(self.size()),
+            Self::Space(_) => Frame::soft(self.size()),
         }
     }
 
