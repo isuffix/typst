@@ -556,8 +556,8 @@ fn param_completions<'a>(
 }
 
 /// Add completions for the values of a named function parameter.
-fn named_param_value_completions<'a>(
-    ctx: &mut CompletionContext<'a>,
+fn named_param_value_completions(
+    ctx: &mut CompletionContext,
     callee: &LinkedNode,
     name: &str,
 ) {
@@ -577,11 +577,7 @@ fn named_param_value_completions<'a>(
 }
 
 /// Add completions for the values of a parameter.
-fn param_value_completions<'a>(
-    ctx: &mut CompletionContext<'a>,
-    func: &Func,
-    param: &ParamInfo,
-) {
+fn param_value_completions(ctx: &mut CompletionContext, func: &Func, param: &ParamInfo) {
     if param.name() == Some("font") {
         ctx.font_completions();
     } else if let Some(extensions) = path_completion(func, param) {

@@ -841,7 +841,7 @@ pub struct PrimesItem {
 
 impl PrimesItem {
     /// Creates a new primes item.
-    pub(crate) fn create<'a>(count: usize, styles: StyleChain<'a>) -> MathItem<'a> {
+    pub(crate) fn create(count: usize, styles: StyleChain<'_>) -> MathItem<'_> {
         let kind = MathKind::Primes(Box::new(Self { count }));
         let props = MathProperties::default(styles, Span::detached());
         MathComponent { kind, props, styles }.into()
@@ -883,11 +883,7 @@ pub struct NumberItem {
 
 impl NumberItem {
     /// Creates a new number item.
-    pub(crate) fn create<'a>(
-        text: EcoString,
-        styles: StyleChain<'a>,
-        span: Span,
-    ) -> MathItem<'a> {
+    pub(crate) fn create(text: EcoString, styles: StyleChain, span: Span) -> MathItem {
         let kind = MathKind::Number(Self { text });
         let props = MathProperties::default(styles, span);
         MathComponent { kind, props, styles }.into()
@@ -912,11 +908,7 @@ impl GlyphItem {
     ///
     /// The `dtls` parameter indicates that a dotless character was converted
     /// to its non-dotless version.
-    pub(crate) fn create<'a>(
-        text: EcoString,
-        styles: StyleChain<'a>,
-        span: Span,
-    ) -> MathItem<'a> {
+    pub(crate) fn create(text: EcoString, styles: StyleChain, span: Span) -> MathItem {
         assert!(text.graphemes(true).count() == 1);
 
         let c = text.chars().next().unwrap();
