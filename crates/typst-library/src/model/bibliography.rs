@@ -1001,7 +1001,7 @@ impl ElemRenderer<'_> {
             hayagriva::ElemChild::Markup(markup) => self.display_math(markup),
             hayagriva::ElemChild::Link { text, url } => self.display_link(text, url)?,
             hayagriva::ElemChild::Transparent { cite_idx, format } => {
-                self.display_transparent(*cite_idx, format)
+                self.display_transparent(*cite_idx, *format)
             }
         })
     }
@@ -1083,7 +1083,7 @@ impl ElemRenderer<'_> {
     }
 
     /// Display transparent pass-through content.
-    fn display_transparent(&self, i: usize, format: &hayagriva::Formatting) -> Content {
+    fn display_transparent(&self, i: usize, format: hayagriva::Formatting) -> Content {
         let content = (self.supplement)(i).unwrap_or_default();
         apply_formatting(content, format)
     }
@@ -1101,12 +1101,12 @@ impl ElemRenderer<'_> {
         };
 
         let content = TextElem::packed(formatted_text).spanned(self.span);
-        apply_formatting(content, &formatted.formatting)
+        apply_formatting(content, formatted.formatting)
     }
 }
 
 /// Applies formatting to content.
-fn apply_formatting(mut content: Content, format: &hayagriva::Formatting) -> Content {
+fn apply_formatting(mut content: Content, format: hayagriva::Formatting) -> Content {
     match format.font_style {
         citationberg::FontStyle::Normal => {}
         citationberg::FontStyle::Italic => {

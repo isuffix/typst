@@ -104,12 +104,12 @@ pub struct Attrs {
 
 impl Attrs {
     /// The stages, the way they were parsed.
-    pub fn parsed_stages(&self) -> TestStages {
+    pub fn parsed_stages(self) -> TestStages {
         self.stages
     }
 
     /// The stages that were parsed and the ones that are implied.
-    pub fn implied_stages(&self) -> TestStages {
+    pub fn implied_stages(self) -> TestStages {
         self.stages.with_implied()
     }
 }
@@ -145,8 +145,8 @@ impl TestStages {
     /// The union of the supplied stages and their implied stages.
     ///
     /// The `paged` target will test `render`, `pdf`, and `svg` by default.
-    pub fn with_implied(&self) -> TestStages {
-        let mut res = *self;
+    pub fn with_implied(self) -> TestStages {
+        let mut res = self;
         for flag in self.iter() {
             res |= bitflags::bitflags_match!(flag, {
                 TestStages::EVAL => TestStages::empty(),
@@ -167,8 +167,8 @@ impl TestStages {
     ///
     /// For example, the `pdf` output requires the `paged` target.
     /// And the `pdftags` output requires both `pdf` and `paged`.
-    pub fn with_required(&self) -> TestStages {
-        let mut res = *self;
+    pub fn with_required(self) -> TestStages {
+        let mut res = self;
         for flag in self.iter() {
             res |= bitflags::bitflags_match!(flag, {
                 TestStages::EVAL => TestStages::empty(),
@@ -188,8 +188,8 @@ impl TestStages {
     /// The union of the supplied stages and their sibling stages.
     ///
     /// See the tree in [`TestStages`].
-    pub fn with_siblings(&self) -> TestStages {
-        let mut res = *self;
+    pub fn with_siblings(self) -> TestStages {
+        let mut res = self;
         for flag in self.iter() {
             res |= bitflags::bitflags_match!(flag, {
                 TestStages::PAGED => TestStages::PAGED | TestStages::HTML | TestStages::BUNDLE,
@@ -318,7 +318,7 @@ impl TestOutput {
     }
 
     /// The sub directory inside the [`REF_PATH`] and [`STORE_PATH`].
-    pub const fn sub_dir(&self) -> &'static str {
+    pub const fn sub_dir(self) -> &'static str {
         match self {
             Self::Render => "render",
             Self::Pdf => "pdf",
@@ -330,7 +330,7 @@ impl TestOutput {
     }
 
     /// The file extension used for live output.
-    pub const fn live_extension(&self) -> &'static str {
+    pub const fn live_extension(self) -> &'static str {
         match self {
             Self::Render => "png",
             Self::Pdf => "pdf",
@@ -342,7 +342,7 @@ impl TestOutput {
     }
 
     /// The file extension used for file references.
-    pub const fn ref_extension(&self) -> &'static str {
+    pub const fn ref_extension(self) -> &'static str {
         match self {
             Self::Bundle => "txt",
             _ => self.live_extension(),
@@ -350,21 +350,21 @@ impl TestOutput {
     }
 
     /// The path at which the live output will be stored.
-    pub fn hash_path(&self, hash: HashedRef, name: &str) -> PathBuf {
+    pub fn hash_path(self, hash: HashedRef, name: &str) -> PathBuf {
         let ext = self.live_extension();
         PathBuf::from(format!("{STORE_PATH}/by-hash/{hash}_{name}.{ext}"))
     }
 
     /// The path at which a symlink to the [`Self::hash_path`] will be created
     /// for inspection.
-    pub fn live_path(&self, name: &str) -> PathBuf {
+    pub fn live_path(self, name: &str) -> PathBuf {
         let dir = self.sub_dir();
         let ext = self.live_extension();
         PathBuf::from(format!("{STORE_PATH}/{dir}/{name}.{ext}"))
     }
 
     /// The path at which file references will be saved.
-    pub fn file_ref_path(&self, name: &str) -> PathBuf {
+    pub fn file_ref_path(self, name: &str) -> PathBuf {
         let dir = self.sub_dir();
         let ext = self.ref_extension();
         PathBuf::from(format!("{REF_PATH}/{dir}/{name}.{ext}"))
@@ -377,7 +377,7 @@ impl TestOutput {
     }
 
     /// The output kind.
-    pub fn kind(&self) -> TestOutputKind {
+    pub fn kind(self) -> TestOutputKind {
         match self {
             TestOutput::Render | TestOutput::Bundle => TestOutputKind::File,
             TestOutput::Pdf => TestOutputKind::Hash(output::Pdf::INDEX),

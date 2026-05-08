@@ -760,7 +760,7 @@ fn breakpoints(p: &Preparation, mut f: impl FnMut(usize, Breakpoint)) {
         if hyphenate && last < point {
             for segment in text[last..point].split_word_bounds() {
                 if !segment.is_empty() && segment.chars().all(char::is_alphabetic) {
-                    hyphenations(p, &lb, last, segment, &mut f);
+                    hyphenations(p, lb, last, segment, &mut f);
                 }
                 last += segment.len();
             }
@@ -775,7 +775,7 @@ fn breakpoints(p: &Preparation, mut f: impl FnMut(usize, Breakpoint)) {
 /// Generate breakpoints for hyphenations within a word.
 fn hyphenations(
     p: &Preparation,
-    lb: &CodePointMapDataBorrowed<LineBreak>,
+    lb: CodePointMapDataBorrowed<LineBreak>,
     mut offset: usize,
     word: &str,
     mut f: impl FnMut(usize, Breakpoint),

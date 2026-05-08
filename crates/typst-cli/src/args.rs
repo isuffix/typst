@@ -590,7 +590,7 @@ pub enum OutputFormat {
 
 impl OutputFormat {
     /// Whether this format results in a `PagedDocument`.
-    pub fn is_paged(&self) -> bool {
+    pub fn is_paged(self) -> bool {
         matches!(self, Self::Pdf | Self::Png | Self::Svg)
     }
 }
