@@ -30,7 +30,7 @@ impl<T> IdVec<T> {
         &mut self.inner[id.idx()]
     }
 
-    #[allow(unused)]
+    #[cfg(debug_assertions)]
     pub fn iter(&self) -> std::slice::Iter<'_, T> {
         self.inner.iter()
     }

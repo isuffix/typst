@@ -521,7 +521,6 @@ fn linebreak_optimized_approximate(
 }
 
 /// Compute the stretch ratio and cost of a line.
-#[allow(clippy::too_many_arguments)]
 fn ratio_and_cost(
     p: &Preparation,
     metrics: &CostMetrics,

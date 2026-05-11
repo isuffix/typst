@@ -256,7 +256,7 @@ pub struct SettableFieldData<E: SettableField<I>, const I: u8> {
 
 impl<E: SettableField<I>, const I: u8> SettableFieldData<E, I> {
     /// Creates the data from its parts. This is called in the `#[elem]` macro.
-    #[allow(clippy::too_many_arguments)]
+    #[expect(clippy::too_many_arguments)]
     pub const fn new(
         name: &'static str,
         docs: &'static str,

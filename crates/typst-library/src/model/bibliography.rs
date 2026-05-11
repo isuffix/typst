@@ -876,7 +876,7 @@ impl<'a> Generator<'a> {
     }
 
     /// Display the bibliography references.
-    #[allow(clippy::type_complexity)]
+    #[expect(clippy::type_complexity)]
     fn display_references(
         &self,
         rendered: &hayagriva::Rendered,

@@ -1081,7 +1081,7 @@ fn handle_mathml(
 }
 
 /// Creates an `mo` element.
-#[allow(clippy::too_many_arguments)]
+#[expect(clippy::too_many_arguments)]
 fn make_mo(
     text: &str,
     span: Span,
