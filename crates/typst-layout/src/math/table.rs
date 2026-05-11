@@ -59,7 +59,9 @@ pub fn layout_table(
     // individual cells must first be independently laid out
     // so we can ensure alignment across rows and columns.
     let mut cols: Vec<Vec<CellLayout>> =
-        (0..ncols).map(|_| Vec::with_capacity(nrows)).collect();
+        std::iter::repeat_with(|| Vec::with_capacity(nrows))
+            .take(ncols)
+            .collect();
 
     // This variable stores the maximum ascent and descent for each row.
     let mut heights = vec![(Abs::zero(), Abs::zero()); nrows];
