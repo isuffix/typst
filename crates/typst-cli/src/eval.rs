@@ -1,4 +1,4 @@
-use comemo::Track;
+use comemo::Track as _;
 use ecow::eco_format;
 use typst::diag::{HintedStrResult, SourceResult, Warned};
 use typst::foundations::{Context, Output, Scope, StyleChain, Value};

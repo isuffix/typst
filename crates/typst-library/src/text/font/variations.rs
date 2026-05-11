@@ -2,10 +2,10 @@ use ecow::{EcoString, eco_format};
 use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
 use std::hash::{Hash, Hasher};
-use typst_utils::Rdedup;
+use typst_utils::Rdedup as _;
 
-use crate::diag::{Hint, HintedStrResult};
-use crate::foundations::{Dict, Fold, IntoValue, Repr, cast};
+use crate::diag::{Hint as _, HintedStrResult};
+use crate::foundations::{Dict, Fold, IntoValue as _, Repr, cast};
 use crate::layout::Abs;
 use crate::text::{FontStyle, FontVariant, Tag};
 

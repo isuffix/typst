@@ -1,18 +1,19 @@
 use std::sync::Arc;
 
-use base64::Engine;
+use base64::Engine as _;
 use ecow::{EcoString, eco_format};
 use hayro::hayro_interpret::InterpreterSettings;
 use hayro::hayro_interpret::font::{FontData, FontQuery, StandardFont};
 use hayro_svg::{RenderCache, SvgRenderSettings};
-use image::{ImageEncoder, codecs::png::PngEncoder};
+use image::ImageEncoder as _;
+use image::codecs::png::PngEncoder;
 use typst_library::foundations::{Bytes, Smart};
 use typst_library::layout::{Abs, Axes};
 use typst_library::visualize::{
     ExchangeFormat, Image, ImageKind, ImageScaling, PdfImage, RasterFormat,
 };
 
-use crate::write::{SvgElem, SvgTransform, SvgWrite};
+use crate::write::{SvgElem, SvgTransform, SvgWrite as _};
 use crate::{SVGRenderer, State};
 
 impl SVGRenderer<'_> {
