@@ -573,7 +573,6 @@ impl Collector {
                     path,
                     line,
                 ));
-                continue;
             }
         }
 

@@ -94,7 +94,6 @@ impl<'a, 'b> Composer<'a, 'b, '_, '_> {
                 Err(Stop::Relayout(PlacementScope::Column)) => unreachable!(),
                 Err(Stop::Relayout(PlacementScope::Parent)) => {
                     *self.work = checkpoint.clone();
-                    continue;
                 }
                 Err(Stop::Error(err)) => return Err(err),
             };
@@ -193,7 +192,6 @@ impl<'a, 'b> Composer<'a, 'b, '_, '_> {
                 Err(Stop::Finish(_)) => unreachable!(),
                 Err(Stop::Relayout(PlacementScope::Column)) => {
                     *self.work = checkpoint.clone();
-                    continue;
                 }
                 err => return err,
             }
