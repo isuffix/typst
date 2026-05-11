@@ -58,8 +58,7 @@ pub fn layout_table(
     // Before the full matrix body can be laid out, the
     // individual cells must first be independently laid out
     // so we can ensure alignment across rows and columns.
-    let mut cols: Vec<Vec<CellLayout>> =
-        (0..ncols).map(|_| Vec::with_capacity(nrows)).collect();
+    let mut cols = vec![Vec::with_capacity(nrows); ncols];
 
     // This variable stores the maximum ascent and descent for each row.
     let mut heights = vec![(Abs::zero(), Abs::zero()); nrows];
@@ -187,6 +186,7 @@ pub fn layout_table(
     Ok(())
 }
 
+#[derive(Clone)]
 struct CellLayout {
     sub_columns: Vec<MathRun>,
     height: (Abs, Abs),
