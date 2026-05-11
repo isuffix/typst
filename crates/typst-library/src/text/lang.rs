@@ -713,8 +713,8 @@ mod tests {
 
     #[test]
     fn test_all_translations_included() {
-        let defined_keys =
-            FxHashSet::<&str>::from_iter(TRANSLATIONS.iter().map(|(lang, _)| *lang));
+        let defined_keys: FxHashSet<&str> =
+            TRANSLATIONS.iter().map(|(lang, _)| *lang).collect();
         let mut checked = 0;
         for file in translation_files_iter() {
             assert!(
