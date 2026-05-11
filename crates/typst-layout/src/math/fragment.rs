@@ -16,12 +16,12 @@ use typst_library::math::{EquationElem, MathSize, families};
 use typst_library::text::{Font, Glyph, TextElem, TextItem, features, language, variant};
 use typst_library::visualize::{FixedStroke, Paint};
 use typst_syntax::Span;
-use typst_utils::{Get, default_math_class};
+use typst_utils::{Get as _, default_math_class};
 use unicode_math_class::MathClass;
 
 use super::MathContext;
 use super::shaping::shape;
-use crate::modifiers::{FrameModifiers, FrameModify};
+use crate::modifiers::{FrameModifiers, FrameModify as _};
 
 /// Maximum number of times extenders can be repeated.
 const MAX_REPEATS: usize = 1024;

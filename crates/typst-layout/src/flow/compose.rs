@@ -2,7 +2,7 @@ use std::num::NonZeroUsize;
 
 use typst_library::diag::SourceResult;
 use typst_library::engine::Engine;
-use typst_library::foundations::{Content, NativeElement, Packed, Resolve, Smart};
+use typst_library::foundations::{Content, NativeElement, Packed, Resolve as _, Smart};
 use typst_library::introspection::{
     Counter, CounterDisplayElem, CounterState, CounterUpdate, Location, Locator,
     SplitLocator, Tag,
@@ -15,7 +15,7 @@ use typst_library::model::{
     FootnoteElem, FootnoteEntry, LineNumberingScope, Numbering, ParLineMarker,
 };
 use typst_syntax::Span;
-use typst_utils::{NonZeroExt, Numeric};
+use typst_utils::{NonZeroExt as _, Numeric as _};
 
 use super::{
     Config, FlowMode, FlowResult, LineNumberConfig, PlacedChild, Stop, Work, distribute,

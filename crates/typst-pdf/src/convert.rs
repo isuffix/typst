@@ -15,10 +15,10 @@ use rustc_hash::{FxBuildHasher, FxHashMap, FxHashSet};
 use smallvec::SmallVec;
 use typst_layout::PagedDocument;
 use typst_library::diag::{
-    At, ExpectInternal, SourceDiagnostic, SourceResult, bail, error,
+    At as _, ExpectInternal as _, SourceDiagnostic, SourceResult, bail, error,
 };
-use typst_library::foundations::{NativeElement, Repr};
-use typst_library::introspection::{Introspector, Location, PagedPosition, Tag};
+use typst_library::foundations::{NativeElement as _, Repr as _};
+use typst_library::introspection::{Introspector as _, Location, PagedPosition, Tag};
 use typst_library::layout::{Frame, FrameItem, GroupItem, Size, Transform};
 use typst_library::model::{HeadingElem, LateLinkResolver};
 use typst_library::text::Font;
@@ -31,11 +31,11 @@ use crate::image::handle_image;
 use crate::link::{LinkAnnotation, handle_link};
 use crate::metadata::build_metadata;
 use crate::outline::build_outline;
-use crate::page::PageLabelExt;
+use crate::page::PageLabelExt as _;
 use crate::shape::handle_shape;
 use crate::tags::{self, GroupId, Tags};
 use crate::text::handle_text;
-use crate::util::{AbsExt, TransformExt, convert_path, display_font};
+use crate::util::{AbsExt as _, TransformExt as _, convert_path, display_font};
 
 #[typst_macros::time(name = "convert document")]
 pub fn convert(

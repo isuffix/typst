@@ -6,12 +6,12 @@ use typst_library::layout::{Abs, Axis, Size};
 use typst_library::math::ir::{GlyphItem, MathProperties, NumberItem, TextItem};
 use typst_library::math::{EquationElem, MathSize, style_dtls, style_flac};
 use typst_library::text::{Font, TextElem};
-use typst_utils::Get;
+use typst_utils::Get as _;
 use unicode_math_class::MathClass;
 
 use super::MathContext;
 use super::fragment::{FrameFragment, GlyphFragment};
-use super::run::MathFragmentsExt;
+use super::run::MathFragmentsExt as _;
 
 /// Lays out a [`TextItem`].
 #[typst_macros::time(name = "math text layout", span = props.span)]

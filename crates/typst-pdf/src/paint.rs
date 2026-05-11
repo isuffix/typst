@@ -15,11 +15,13 @@ use typst_library::visualize::{
     Color, ColorSpace, DashPattern, FillRule, FixedStroke, Geometry, Gradient, Paint,
     RelativeTo, Shape, Tiling, WeightedColor,
 };
-use typst_utils::Numeric;
+use typst_utils::Numeric as _;
 
 use crate::convert::{FrameContext, GlobalContext, State, handle_frame};
 use crate::tags;
-use crate::util::{AbsExt, FillRuleExt, LineCapExt, LineJoinExt, TransformExt};
+use crate::util::{
+    AbsExt as _, FillRuleExt as _, LineCapExt as _, LineJoinExt as _, TransformExt as _,
+};
 
 pub(crate) fn convert_fill(
     gc: &mut GlobalContext,

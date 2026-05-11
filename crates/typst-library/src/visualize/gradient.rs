@@ -9,7 +9,7 @@ use typst_syntax::{Span, Spanned};
 
 use crate::diag::{SourceResult, bail};
 use crate::foundations::{
-    Args, Array, Cast, Func, IntoValue, Repr, Smart, array, cast, func, scope, ty,
+    Args, Array, Cast, Func, IntoValue as _, Repr, Smart, array, cast, func, scope, ty,
 };
 use crate::layout::{Angle, Axes, Dir, Ratio};
 use crate::visualize::{Color, ColorSpace, WeightedColor};

@@ -4,7 +4,7 @@ use std::num::NonZeroUsize;
 use std::path::Path;
 use std::sync::{Arc, LazyLock};
 
-use comemo::{Track, Tracked};
+use comemo::{Track as _, Tracked};
 use ecow::{EcoString, EcoVec, eco_format};
 use hayagriva::archive::ArchivedStyle;
 use hayagriva::io::BibLaTeXError;
@@ -16,25 +16,25 @@ use indexmap::IndexMap;
 use rustc_hash::{FxBuildHasher, FxHashMap};
 use smallvec::SmallVec;
 use typst_syntax::{Span, Spanned, SyntaxMode};
-use typst_utils::{ManuallyHash, NonZeroExt, PicoStr};
+use typst_utils::{ManuallyHash, NonZeroExt as _, PicoStr};
 
 use crate::World;
 use crate::diag::{
-    At, HintedStrResult, LoadError, LoadResult, LoadedWithin, ReportPos,
+    At as _, HintedStrResult, LoadError, LoadResult, LoadedWithin as _, ReportPos,
     SourceDiagnostic, SourceResult, StrResult, bail, error, warning,
 };
 use crate::engine::{Engine, Sink};
 use crate::foundations::{
     Bytes, CastInfo, Content, Context, Derived, FromValue, IntoValue, Label,
-    NativeElement, OneOrMultiple, Packed, Reflect, Scope, ShowSet, Smart, StyleChain,
-    Styles, Synthesize, Value, elem,
+    NativeElement as _, OneOrMultiple, Packed, Reflect, Scope, ShowSet, Smart,
+    StyleChain, Styles, Synthesize, Value, elem,
 };
 use crate::introspection::{
     EmptyIntrospector, History, Introspect, Introspector, Locatable, Location,
     QueryIntrospection,
 };
 use crate::layout::{BlockElem, Em, HElem, PadElem};
-use crate::loading::{DataSource, Load, LoadSource, Loaded, format_yaml_error};
+use crate::loading::{DataSource, Load as _, LoadSource, Loaded, format_yaml_error};
 use crate::model::{
     CitationForm, CiteGroup, Destination, DirectLinkElem, FootnoteElem, HeadingElem,
     LinkElem, Url,

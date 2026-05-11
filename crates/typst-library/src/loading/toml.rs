@@ -1,10 +1,10 @@
 use ecow::eco_format;
 use typst_syntax::Spanned;
 
-use crate::diag::{At, LoadError, LoadedWithin, ReportPos, SourceResult};
+use crate::diag::{At as _, LoadError, LoadedWithin as _, ReportPos, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{Dict, Str, func, scope};
-use crate::loading::{DataSource, Load};
+use crate::loading::{DataSource, Load as _};
 
 /// Reads structured data from a TOML file.
 ///

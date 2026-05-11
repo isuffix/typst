@@ -5,13 +5,14 @@ use bumpalo::Bump;
 use comemo::Tracked;
 use icu_properties::CanonicalCombiningClass;
 use icu_properties::maps::CodePointMapData;
-use icu_provider::AsDeserializingBufferProvider;
+use icu_provider::AsDeserializingBufferProvider as _;
 use icu_provider_blob::BlobDataProvider;
 
 use crate::engine::Engine;
 use crate::foundations::{
-    Args, CastInfo, Content, Context, Func, IntoValue, NativeElement, NativeFuncData,
-    NativeFuncPtr, NativeParamInfo, Reflect, Scope, Str, SymbolElem, Type, cast, elem,
+    Args, CastInfo, Content, Context, Func, IntoValue as _, NativeElement as _,
+    NativeFuncData, NativeFuncPtr, NativeParamInfo, Reflect as _, Scope, Str, SymbolElem,
+    Type, cast, elem,
 };
 use crate::layout::{Em, Length, Rel};
 use crate::math::Mathy;

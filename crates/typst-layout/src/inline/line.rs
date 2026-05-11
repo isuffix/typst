@@ -2,12 +2,12 @@ use std::fmt::{self, Debug, Formatter};
 use std::ops::{Deref, DerefMut};
 
 use typst_library::engine::Engine;
-use typst_library::foundations::Resolve;
+use typst_library::foundations::Resolve as _;
 use typst_library::introspection::{SplitLocator, Tag, TagFlags};
 use typst_library::layout::{Abs, Dir, Em, Fr, Frame, FrameItem, Point};
 use typst_library::model::ParLineMarker;
 use typst_library::text::{Lang, TextElem, variant};
-use typst_utils::Numeric;
+use typst_utils::Numeric as _;
 
 use super::*;
 use crate::inline::linebreak::Trim;

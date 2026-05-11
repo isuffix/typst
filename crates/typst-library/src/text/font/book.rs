@@ -4,7 +4,7 @@ use std::fmt::{self, Debug, Formatter};
 
 use serde::{Deserialize, Serialize};
 use ttf_parser::{PlatformId, Tag, name_id};
-use unicode_segmentation::UnicodeSegmentation;
+use unicode_segmentation::UnicodeSegmentation as _;
 
 use super::exceptions::find_exception;
 use crate::text::{

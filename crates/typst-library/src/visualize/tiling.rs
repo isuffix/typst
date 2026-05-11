@@ -3,7 +3,7 @@ use std::sync::Arc;
 
 use ecow::{EcoString, eco_format};
 use typst_syntax::{Span, Spanned};
-use typst_utils::{LazyHash, Numeric};
+use typst_utils::{LazyHash, Numeric as _};
 
 use crate::diag::{SourceResult, bail};
 use crate::engine::Engine;

@@ -23,10 +23,12 @@ use self::access::*;
 use self::binding::*;
 use self::methods::*;
 
-use comemo::{Track, Tracked, TrackedMut};
+use comemo::{Track as _, Tracked, TrackedMut};
 use typst_library::diag::{SourceResult, bail};
 use typst_library::engine::{Engine, Route, Sink, Traced};
-use typst_library::foundations::{Context, Module, NativeElement, Scope, Scopes, Value};
+use typst_library::foundations::{
+    Context, Module, NativeElement as _, Scope, Scopes, Value,
+};
 use typst_library::introspection::{EmptyIntrospector, Introspector};
 use typst_library::math::EquationElem;
 use typst_library::routines::SpanMode;

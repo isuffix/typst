@@ -2,13 +2,13 @@ use std::num::NonZeroUsize;
 use std::ops::RangeInclusive;
 use std::str::FromStr;
 
-use typst_utils::{NonZeroExt, Scalar, singleton};
+use typst_utils::{NonZeroExt as _, Scalar, singleton};
 
 use crate::diag::{SourceResult, bail};
 use crate::engine::Engine;
 use crate::foundations::{
-    Args, AutoValue, Cast, Construct, Content, Dict, Fold, NativeElement, Set, Smart,
-    Value, cast, elem,
+    Args, AutoValue, Cast, Construct, Content, Dict, Fold, NativeElement as _, Set as _,
+    Smart, Value, cast, elem,
 };
 use crate::layout::{
     Abs, Alignment, FlushElem, HAlignment, Length, OuterVAlignment, Ratio, Rel, Sides,

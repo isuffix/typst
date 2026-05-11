@@ -17,16 +17,16 @@ use std::sync::Arc;
 use ecow::EcoString;
 use hayro_syntax::LoadPdfError;
 use typst_syntax::{Spanned, VirtualPath};
-use typst_utils::{LazyHash, NonZeroExt};
+use typst_utils::{LazyHash, NonZeroExt as _};
 
-use crate::diag::{At, LoadedWithin, SourceResult, StrResult, bail, warning};
+use crate::diag::{At as _, LoadedWithin as _, SourceResult, StrResult, bail, warning};
 use crate::engine::Engine;
 use crate::foundations::{
     Bytes, Cast, Derived, Packed, Smart, StyleChain, Synthesize, cast, elem,
 };
 use crate::introspection::{Locatable, Tagged};
 use crate::layout::{Length, Rel, Sizing};
-use crate::loading::{DataSource, Load, Loaded};
+use crate::loading::{DataSource, Load as _, Loaded};
 use crate::model::Figurable;
 use crate::text::{LocalName, Locale, families};
 use crate::visualize::image::pdf::PdfDocument;

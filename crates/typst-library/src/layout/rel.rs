@@ -3,7 +3,7 @@ use std::fmt::{self, Debug, Formatter};
 use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 
 use ecow::{EcoString, eco_format};
-use typst_utils::{Numeric, NumericLength};
+use typst_utils::{Numeric as _, NumericLength};
 
 use crate::foundations::{Fold, Repr, Resolve, StyleChain, cast, ty};
 use crate::layout::{Abs, Em, Length, Ratio};

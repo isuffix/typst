@@ -5,7 +5,7 @@ use krilla::geom as kg;
 use krilla::geom::PathBuilder;
 use krilla::paint as kp;
 use krilla::tagging as kt;
-use typst_library::foundations::Repr;
+use typst_library::foundations::Repr as _;
 use typst_library::layout::{Abs, Point, Sides, Size, Transform};
 use typst_library::text::Font;
 use typst_library::visualize::{Curve, CurveItem, FillRule, LineCap, LineJoin};

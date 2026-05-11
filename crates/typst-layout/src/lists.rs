@@ -1,4 +1,4 @@
-use comemo::Track;
+use comemo::Track as _;
 use smallvec::smallvec;
 use typst_library::diag::SourceResult;
 use typst_library::engine::Engine;

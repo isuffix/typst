@@ -1,6 +1,6 @@
 use typst_syntax::Spanned;
 
-use crate::diag::{At, HintedString, SourceResult, error};
+use crate::diag::{At as _, HintedString, SourceResult, error};
 use crate::engine::Engine;
 use crate::foundations::{
     Cast, Content, Derived, Label, Packed, Smart, StyleChain, Synthesize, cast, elem,

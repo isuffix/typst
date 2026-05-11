@@ -1,10 +1,10 @@
 use std::ops::{Add, Sub};
 use std::sync::LazyLock;
 
-use az::SaturatingAs;
+use az::SaturatingAs as _;
 use icu_properties::LineBreak;
 use icu_properties::maps::{CodePointMapData, CodePointMapDataBorrowed};
-use icu_provider::AsDeserializingBufferProvider;
+use icu_provider::AsDeserializingBufferProvider as _;
 use icu_provider_adapters::fork::ForkByKeyProvider;
 use icu_provider_blob::BlobDataProvider;
 use icu_segmenter::LineSegmenter;
@@ -14,7 +14,7 @@ use typst_library::model::Linebreaks;
 use typst_library::text::{Lang, TextElem};
 use typst_syntax::link_prefix;
 use typst_utils::Scalar;
-use unicode_segmentation::UnicodeSegmentation;
+use unicode_segmentation::UnicodeSegmentation as _;
 
 use super::*;
 

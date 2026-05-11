@@ -30,27 +30,27 @@ pub use self::space::*;
 
 use std::fmt::{self, Debug, Formatter};
 use std::hash::Hash;
-use std::str::FromStr;
+use std::str::FromStr as _;
 use std::sync::LazyLock;
 
 use ecow::{EcoString, eco_format};
 use icu_properties::sets::CodePointSetData;
-use icu_provider::AsDeserializingBufferProvider;
+use icu_provider::AsDeserializingBufferProvider as _;
 use icu_provider_blob::BlobDataProvider;
 use rustybuzz::Feature;
 use smallvec::SmallVec;
 use ttf_parser::Tag;
 use typst_syntax::Spanned;
 use typst_utils::singleton;
-use unicode_segmentation::UnicodeSegmentation;
+use unicode_segmentation::UnicodeSegmentation as _;
 
-use crate::World;
-use crate::diag::{Hint, HintedStrResult, SourceResult, StrResult, bail, warning};
+use crate::World as _;
+use crate::diag::{Hint as _, HintedStrResult, SourceResult, StrResult, bail, warning};
 use crate::engine::Engine;
 use crate::foundations::{
-    Args, Array, Cast, Construct, Content, Dict, Fold, IntoValue, NativeElement, Never,
-    NoneValue, Packed, PlainText, Regex, Repr, Resolve, Scope, Set, Smart, Str,
-    StyleChain, cast, dict, elem,
+    Args, Array, Cast, Construct, Content, Dict, Fold, IntoValue, NativeElement as _,
+    Never, NoneValue, Packed, PlainText, Regex, Repr, Resolve, Scope, Set as _, Smart,
+    Str, StyleChain, cast, dict, elem,
 };
 use crate::layout::{Abs, Axis, Dir, Em, Length, Ratio, Rel};
 use crate::math::{EquationElem, MathSize};

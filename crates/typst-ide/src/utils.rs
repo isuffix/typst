@@ -1,7 +1,7 @@
-use std::fmt::Write;
+use std::fmt::Write as _;
 use std::ops::ControlFlow;
 
-use comemo::Track;
+use comemo::Track as _;
 use ecow::{EcoString, eco_format};
 use typst::engine::{Engine, Route, Sink, Traced};
 use typst::foundations::{Scope, Value};
