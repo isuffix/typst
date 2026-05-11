@@ -433,10 +433,7 @@ impl From<&Gradient> for GradientKind {
 impl SvgDisplay for Color {
     fn fmt(&self, f: &mut impl SvgWrite) {
         match *self {
-            c @ Color::Rgb(_)
-            | c @ Color::Luma(_)
-            | c @ Color::Cmyk(_)
-            | c @ Color::Hsv(_) => {
+            c @ (Color::Rgb(_) | Color::Luma(_) | Color::Cmyk(_) | Color::Hsv(_)) => {
                 f.push_str(&c.to_hex());
             }
             Color::LinearRgb(rgb) => {
