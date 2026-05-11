@@ -254,7 +254,7 @@ impl SyntaxNode {
             return Err(Unnumberable);
         }
 
-        let mid = Span::from_number(id, (within.start + within.end) / 2).unwrap();
+        let mid = Span::from_number(id, u64::midpoint(within.start, within.end)).unwrap();
         match &mut self.0 {
             NodeKind::Leaf(leaf) => leaf.span = mid,
             NodeKind::Inner(inner) => Arc::make_mut(inner).numberize(id, None, within)?,
@@ -497,7 +497,7 @@ impl InnerNode {
         let mut start = within.start;
         if range.is_none() {
             let end = start + stride;
-            self.span = Span::from_number(id, (start + end) / 2).unwrap();
+            self.span = Span::from_number(id, u64::midpoint(start, end)).unwrap();
             self.upper = within.end;
             start = end;
         }

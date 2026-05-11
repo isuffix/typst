@@ -298,7 +298,7 @@ mod exceptions {
         let mut lo = 0;
         let mut hi = LIST.len();
         while lo < hi {
-            let mid = (lo + hi) / 2;
+            let mid = usize::midpoint(lo, hi);
             match strcmp(string, LIST[mid]) {
                 Ordering::Less => hi = mid,
                 Ordering::Greater => lo = mid + 1,
