@@ -657,16 +657,21 @@ pub(super) struct InnerNode {
     /// The upper bound of this node's numbering range.
     pub upper: u64,
     /// This node's children, losslessly make up this node.
-    pub children: Vec<SyntaxNode>,
+    ///
+    /// We use a `Box<[SyntaxNode]>` instead of a `Vec<SyntaxNode>` to reduce
+    /// storage size since we always construct an inner node from a full array
+    /// of nodes.
+    pub children: Box<[SyntaxNode]>,
 }
 
 impl InnerNode {
     /// Create a new inner node with the given children.
-    fn new(children: Vec<SyntaxNode>) -> Self {
+    fn new(vec: Vec<SyntaxNode>) -> Self {
         let mut len = 0;
         let mut descendants = 1;
         let mut diagnosis = Diagnosis::default();
 
+        let children = vec.into_boxed_slice();
         for child in &children {
             len += child.len();
             descendants += child.descendants();

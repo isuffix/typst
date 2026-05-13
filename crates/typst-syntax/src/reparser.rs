@@ -413,7 +413,11 @@ impl InnerNode {
 
         let replaced_range = range.start..range.start + new.len();
 
-        self.children.splice(range, replacement.drain(replacement_range));
+        self.children = {
+            let mut vec = std::mem::take(&mut self.children).into_vec();
+            vec.splice(range, replacement.drain(replacement_range));
+            vec.into_boxed_slice()
+        };
         self.update_parent(prev_len, new_len, prev_desc, new_desc, prev_diag, new_diag);
 
         replaced_range
