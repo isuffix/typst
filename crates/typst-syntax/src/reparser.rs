@@ -1,6 +1,6 @@
 use std::ops::Range;
 
-use crate::node::{InnerNode, NumberingResult, Unnumberable};
+use crate::node::{InnerData, InnerNode, NumberingResult, Unnumberable};
 use crate::{
     Diagnosis, Span, SyntaxKind, SyntaxNode, parse, reparse_block, reparse_markup,
 };
@@ -79,7 +79,7 @@ fn try_reparse_and_renumber(
 ) -> Option<(Range<usize>, NumberingResult)> {
     let (overlap, start_offset) = overlapping_children(node, replaced.clone(), offset)?;
 
-    if let [child_node] = &mut node.children[overlap.clone()]
+    if let [child_node] = &mut node[overlap.clone()]
         && let Some((child, child_kind, child_span)) = child_node.reparse_inner_node_mut()
         && start_offset < replaced.start
         && replaced.end < start_offset + child.len
@@ -139,7 +139,7 @@ fn try_reparse_and_renumber(
                 text,
                 replaced,
                 replacement_len,
-                &node.children,
+                node.children(),
                 overlap,
                 offset,
                 parent_kind.is_none(),
@@ -287,7 +287,7 @@ fn overlapping_children(
     let mut index = 0;
     let mut start = 0;
     let mut start_offset = offset;
-    for child in &node.children {
+    for child in node.children() {
         if offset < range.start {
             start = index;
             start_offset = offset;
@@ -363,7 +363,7 @@ impl InnerNode {
         } else if prev_diagnosis != new_diagnosis {
             // Otherwise, we recompute using all the children since we don't
             // know if there were multiple children with errors or warnings.
-            self.diagnosis = Diagnosis::any(&self.children);
+            self.diagnosis = Diagnosis::any(self.children());
         }
     }
 
@@ -383,8 +383,7 @@ impl InnerNode {
         // Trim off common prefix.
         while range.start < range.end
             && replacement_range.start < replacement_range.end
-            && self.children[range.start]
-                .spanless_eq(&replacement[replacement_range.start])
+            && self[range.start].spanless_eq(&replacement[replacement_range.start])
         {
             range.start += 1;
             replacement_range.start += 1;
@@ -393,8 +392,7 @@ impl InnerNode {
         // Trim off common suffix.
         while range.start < range.end
             && replacement_range.start < replacement_range.end
-            && self.children[range.end - 1]
-                .spanless_eq(&replacement[replacement_range.end - 1])
+            && self[range.end - 1].spanless_eq(&replacement[replacement_range.end - 1])
         {
             range.end -= 1;
             replacement_range.end -= 1;
@@ -406,18 +404,31 @@ impl InnerNode {
         let new_desc = new.iter().map(SyntaxNode::descendants).sum::<usize>();
         let new_diag = Diagnosis::any(new);
 
-        let prev = &self.children[range.clone()];
+        let prev = &self[range.clone()];
         let prev_len = prev.iter().map(SyntaxNode::len).sum::<usize>();
         let prev_desc = prev.iter().map(SyntaxNode::descendants).sum::<usize>();
         let prev_diag = Diagnosis::any(prev);
 
+        // TODO: Integrate with `update_parent` somehow.
+        let len = (self.len - prev_len) + new_len;
+        let descendants = (self.descendants - prev_desc) + new_desc;
+        let diagnosis = {
+            if !self.diagnosis.either() || new_diag.both() {
+                new_diag
+            } else if prev_diag != new_diag {
+                Diagnosis::any(self.children())
+            } else {
+                self.diagnosis
+            }
+        };
+
         let replaced_range = range.start..range.start + new.len();
 
-        self.children = {
-            let mut vec = std::mem::take(&mut self.children).into_vec();
-            vec.splice(range, replacement.drain(replacement_range));
-            vec.into_boxed_slice()
-        };
+        self.0.replace_range(
+            InnerData { len, descendants, diagnosis, upper: self.upper },
+            range,
+            replacement.drain(replacement_range),
+        );
         self.update_parent(prev_len, new_len, prev_desc, new_desc, prev_diag, new_diag);
 
         replaced_range
@@ -435,7 +446,7 @@ impl InnerNode {
         let mut left = 0;
         let mut right = 0;
         let max_left = range.start;
-        let max_right = self.children.len() - range.end;
+        let max_right = self.children().len() - range.end;
         loop {
             let renumber = range.start - left..range.end + right;
 
@@ -447,7 +458,7 @@ impl InnerNode {
             let start_number = renumber
                 .start
                 .checked_sub(1)
-                .and_then(|i| self.children.get(i))
+                .and_then(|i| self.children().get(i))
                 .map_or(span.number() + 1, |child| child.upper());
 
             // The upper bound for renumbering is either
@@ -456,7 +467,7 @@ impl InnerNode {
             // - or this node's upper bound if renumbering ends behind the last
             //   child.
             let end_number = self
-                .children
+                .children()
                 .get(renumber.end)
                 .map_or(self.upper, |next| next.span().number());
 
@@ -763,7 +774,7 @@ mod tests {
         let mut root = parse(&text);
 
         let root_inner = root.reparse_inner_node_mut().unwrap().0;
-        let second_block = &mut root_inner.children[4];
+        let second_block = &mut root_inner[4];
         assert_eq!(second_block.full_text(), "[warn~ing]");
         // Note how the warning message can include text from within the node
         // arbitrarily. This is the primary reason reparsing within warnings is

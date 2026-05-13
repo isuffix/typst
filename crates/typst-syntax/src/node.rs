@@ -1,11 +1,12 @@
 use std::cell::LazyCell;
 use std::fmt::{self, Debug, Display, Formatter};
-use std::ops::{Deref, Range};
+use std::ops::{Deref, DerefMut, Index, IndexMut, Range};
 use std::rc::Rc;
+use std::slice::SliceIndex;
 use std::sync::Arc;
 
 use ecow::{EcoString, EcoVec, eco_format, eco_vec};
-use typst_utils::debug;
+use typst_utils::{ArcHeaderSlice, debug};
 
 use crate::kind::ModeAfter;
 use crate::{
@@ -52,7 +53,7 @@ pub struct SyntaxNode {
 #[derive(Clone, Eq, PartialEq, Hash)]
 enum Node {
     Leaf(EcoString, SyntaxKind),
-    Inner(Arc<InnerNode>, SyntaxKind),
+    Inner(InnerNode, SyntaxKind),
     Error(Arc<ErrorNode>, SyntaxKind),
     Warning(Arc<WarningWrapper>, SyntaxKind),
 }
@@ -60,7 +61,7 @@ enum Node {
 /// Data attached to a node, accessed by reference via [`Node::node_ref`].
 enum NodeRef<'a> {
     Leaf(&'a EcoString),
-    Inner(&'a Arc<InnerNode>),
+    Inner(&'a InnerNode),
     Error(&'a Arc<ErrorNode>),
 }
 
@@ -84,7 +85,7 @@ impl Node {
         loop {
             match data {
                 Node::Leaf(_, _) | Node::Error(_, _) => break None,
-                Node::Inner(inner, _) => break Some(Arc::make_mut(inner)),
+                Node::Inner(inner, _) => break Some(inner),
                 Node::Warning(warn, _) => data = &mut Arc::make_mut(warn).child,
             }
         }
@@ -116,7 +117,7 @@ impl SyntaxNode {
     pub fn inner(kind: SyntaxKind, children: Vec<SyntaxNode>) -> Self {
         debug_assert!(!kind.is_error());
         Self {
-            data: Node::Inner(Arc::new(InnerNode::new(children)), kind),
+            data: Node::Inner(InnerNode::new(children), kind),
             span: Span::detached(),
         }
     }
@@ -281,7 +282,7 @@ impl SyntaxNode {
     pub fn children(&self) -> std::slice::Iter<'_, SyntaxNode> {
         match self.data.node_ref() {
             NodeRef::Leaf(_) | NodeRef::Error(_) => [].iter(),
-            NodeRef::Inner(inner) => inner.children.iter(),
+            NodeRef::Inner(inner) => inner.children().iter(),
         }
     }
 
@@ -312,7 +313,7 @@ impl SyntaxNode {
             loop {
                 match data {
                     Node::Inner(inner, _) if inner.diagnosis.either() => {
-                        break inner.children.iter();
+                        break inner.children().iter();
                     }
                     Node::Leaf(_, _) | Node::Inner(_, _) => break [].iter(),
                     Node::Error(err, _) => {
@@ -398,9 +399,8 @@ impl SyntaxNode {
             match data {
                 Node::Leaf(_, _) => break,
                 Node::Inner(inner, _) => {
-                    let inner = Arc::make_mut(inner);
                     inner.upper = self.span.number();
-                    for child in &mut inner.children {
+                    for child in inner.children_mut() {
                         child.synthesize_with(
                             offset,
                             map_span,
@@ -585,7 +585,7 @@ impl SyntaxNode {
     /// The node's children, mutably.
     pub(super) fn children_mut(&mut self) -> &mut [SyntaxNode] {
         if let Some(inner) = self.data.inner_mut() {
-            &mut inner.children
+            inner.children_mut()
         } else {
             &mut []
         }
@@ -614,7 +614,7 @@ impl SyntaxNode {
         &mut self,
     ) -> Option<(&mut InnerNode, SyntaxKind, Span)> {
         match &mut self.data {
-            Node::Inner(inner, kind) => Some((Arc::make_mut(inner), *kind, self.span)),
+            Node::Inner(inner, kind) => Some((inner, *kind, self.span)),
             _ => None,
         }
     }
@@ -645,8 +645,47 @@ impl Default for SyntaxNode {
 }
 
 /// An inner node in the untyped syntax tree.
+///
+/// Provides convenient access to the data and children slice respectively via
+/// impls of the [`Deref`]/[`DerefMut`], and [`Index`]/[`IndexMut`] traits. Note
+/// that both [`DerefMut`] and [`IndexMut`] will implicitly clone if there is
+/// more than one reference to the underlying [`Arc`].
 #[derive(Clone, Eq, PartialEq, Hash)]
-pub(super) struct InnerNode {
+pub(super) struct InnerNode(pub(super) ArcHeaderSlice<InnerData, SyntaxNode>);
+
+// TODO: Perhaps just expose reference pairs like `(&InnerData, &[SyntaxNode])`
+// or `(&mut InnerData, &mut [SyntaxNode])`.
+
+impl Deref for InnerNode {
+    type Target = InnerData;
+
+    fn deref(&self) -> &Self::Target {
+        self.0.header()
+    }
+}
+
+impl DerefMut for InnerNode {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        self.0.header_mut()
+    }
+}
+
+impl<Idx: SliceIndex<[SyntaxNode]>> Index<Idx> for InnerNode {
+    type Output = Idx::Output;
+
+    fn index(&self, index: Idx) -> &Self::Output {
+        self.0.slice().index(index)
+    }
+}
+
+impl<Idx: SliceIndex<[SyntaxNode]>> IndexMut<Idx> for InnerNode {
+    fn index_mut(&mut self, index: Idx) -> &mut Self::Output {
+        self.0.slice_mut().index_mut(index)
+    }
+}
+
+#[derive(Clone, Eq, PartialEq, Hash)]
+pub(super) struct InnerData {
     /// The byte length of the node in the source.
     pub len: usize,
     /// The number of nodes in the whole subtree, including this node.
@@ -656,29 +695,33 @@ pub(super) struct InnerNode {
     pub diagnosis: Diagnosis,
     /// The upper bound of this node's numbering range.
     pub upper: u64,
-    /// This node's children, losslessly make up this node.
-    ///
-    /// We use a `Box<[SyntaxNode]>` instead of a `Vec<SyntaxNode>` to reduce
-    /// storage size since we always construct an inner node from a full array
-    /// of nodes.
-    pub children: Box<[SyntaxNode]>,
 }
 
 impl InnerNode {
     /// Create a new inner node with the given children.
-    fn new(vec: Vec<SyntaxNode>) -> Self {
+    fn new(children: Vec<SyntaxNode>) -> Self {
         let mut len = 0;
         let mut descendants = 1;
         let mut diagnosis = Diagnosis::default();
 
-        let children = vec.into_boxed_slice();
         for child in &children {
             len += child.len();
             descendants += child.descendants();
             diagnosis = diagnosis.or(child.diagnosis());
         }
 
-        Self { len, descendants, diagnosis, upper: 0, children }
+        Self(ArcHeaderSlice::new(
+            InnerData { len, descendants, diagnosis, upper: 0 },
+            children,
+        ))
+    }
+
+    pub fn children(&self) -> &[SyntaxNode] {
+        self.0.slice()
+    }
+
+    pub fn children_mut(&mut self) -> &mut [SyntaxNode] {
+        self.0.slice_mut()
     }
 
     /// Assign span numbers `within` an interval to this node's subtree or just
@@ -693,10 +736,9 @@ impl InnerNode {
         // Determine how many nodes we will number.
         let descendants = match &range {
             Some(range) if range.is_empty() => return Ok(()),
-            Some(range) => self.children[range.clone()]
-                .iter()
-                .map(SyntaxNode::descendants)
-                .sum::<usize>(),
+            Some(range) => {
+                self[range.clone()].iter().map(SyntaxNode::descendants).sum::<usize>()
+            }
             None => self.descendants,
         };
 
@@ -723,8 +765,8 @@ impl InnerNode {
         }
 
         // Number the children.
-        let len = self.children.len();
-        for child in &mut self.children[range.unwrap_or(0..len)] {
+        let len = self.children().len();
+        for child in &mut self[range.unwrap_or(0..len)] {
             let end = start + child.descendants() as u64 * stride;
             child.numberize(id, start..end)?;
             start = end;
@@ -738,20 +780,20 @@ impl InnerNode {
         self.len == other.len
             && self.descendants == other.descendants
             && self.diagnosis == other.diagnosis
-            && self.children.len() == other.children.len()
+            && self.children().len() == other.children().len()
             && self
-                .children
+                .children()
                 .iter()
-                .zip(&other.children)
+                .zip(other.children().iter())
                 .all(|(a, b)| a.spanless_eq(b))
     }
 
     /// Write with debug formatting using the node's syntax kind.
     fn debug_fmt_kind(&self, f: &mut Formatter, kind: SyntaxKind) -> fmt::Result {
         write!(f, "{kind:?}: {}", self.len)?;
-        if !self.children.is_empty() {
+        if !self.children().is_empty() {
             f.write_str(" ")?;
-            f.debug_list().entries(&self.children).finish()?;
+            f.debug_list().entries(self.children()).finish()?;
         }
         Ok(())
     }
