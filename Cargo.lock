@@ -2674,6 +2674,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7a2ae44ef20feb57a68b23d846850f861394c2e02dc425a50098ae8c90267589"
 
 [[package]]
+name = "slice-dst"
+version = "1.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "93a9d7bbfeec8bb3296a8685fbfe89532de4a1f75e691083bae0a2c5de5b313b"
+dependencies = [
+ "autocfg",
+]
+
+[[package]]
 name = "slotmap"
 version = "1.0.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3585,6 +3594,7 @@ dependencies = [
  "rustc-hash",
  "semver",
  "siphasher",
+ "slice-dst",
  "smallvec",
  "thin-vec",
  "unicode-math-class",

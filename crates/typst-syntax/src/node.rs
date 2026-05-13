@@ -1,11 +1,12 @@
 use std::cell::LazyCell;
 use std::fmt::{self, Debug, Display, Formatter};
-use std::ops::{Deref, Range};
+use std::ops::{Deref, DerefMut, Index, IndexMut, Range};
 use std::rc::Rc;
+use std::slice::SliceIndex;
 use std::sync::Arc;
 
 use ecow::{EcoString, EcoVec, eco_format, eco_vec};
-use typst_utils::debug;
+use typst_utils::{ArcHeaderSlice, debug};
 
 use crate::kind::ModeAfter;
 use crate::{
@@ -52,7 +53,7 @@ pub struct SyntaxNode {
 #[derive(Clone, Eq, PartialEq, Hash)]
 enum Node {
     Leaf(EcoString, SyntaxKind),
-    Inner(Arc<InnerNode>, SyntaxKind),
+    Inner(InnerNode, SyntaxKind),
     Error(Arc<ErrorNode>, SyntaxKind),
     Warning(Arc<WarningWrapper>, SyntaxKind),
 }
@@ -60,7 +61,7 @@ enum Node {
 /// Data attached to a node, accessed by reference via [`SyntaxNode::node_ref`].
 enum NodeRef<'a> {
     Leaf(&'a EcoString),
-    Inner(&'a Arc<InnerNode>),
+    Inner(&'a InnerNode),
     Error(&'a Arc<ErrorNode>),
 }
 
@@ -88,7 +89,7 @@ impl SyntaxNode {
             match data {
                 Node::Leaf(_, _) | Node::Error(_, _) => break None,
                 Node::Inner(inner, _) => {
-                    break Some((Arc::make_mut(inner), &mut self.span));
+                    break Some((inner, &mut self.span));
                 }
                 Node::Warning(warn, _) => data = &mut Arc::make_mut(warn).child,
             }
@@ -121,7 +122,7 @@ impl SyntaxNode {
     pub fn inner(kind: SyntaxKind, children: Vec<SyntaxNode>) -> Self {
         debug_assert!(!kind.is_error());
         Self {
-            data: Node::Inner(Arc::new(InnerNode::new(children)), kind),
+            data: Node::Inner(InnerNode::new(children), kind),
             span: Span::detached(),
         }
     }
@@ -278,7 +279,7 @@ impl SyntaxNode {
     pub fn children(&self) -> std::slice::Iter<'_, SyntaxNode> {
         match self.node_ref() {
             NodeRef::Leaf(_) | NodeRef::Error(_) => [].iter(),
-            NodeRef::Inner(inner) => inner.children.iter(),
+            NodeRef::Inner(inner) => inner.children().iter(),
         }
     }
 
@@ -309,7 +310,7 @@ impl SyntaxNode {
             loop {
                 match data {
                     Node::Inner(inner, _) if inner.diagnosis.either() => {
-                        break inner.children.iter();
+                        break inner.children().iter();
                     }
                     Node::Leaf(_, _) | Node::Inner(_, _) => break [].iter(),
                     Node::Error(err, _) => {
@@ -395,9 +396,8 @@ impl SyntaxNode {
             match data {
                 Node::Leaf(_, _) => break,
                 Node::Inner(inner, _) => {
-                    let inner = Arc::make_mut(inner);
                     inner.upper = self.span.number();
-                    for child in &mut inner.children {
+                    for child in inner.children_mut() {
                         child.synthesize_with(
                             offset,
                             map_span,
@@ -569,7 +569,7 @@ impl SyntaxNode {
     /// The node's children, mutably.
     pub(super) fn children_mut(&mut self) -> &mut [SyntaxNode] {
         if let Some((inner, _)) = self.inner_and_span_mut() {
-            &mut inner.children
+            inner.children_mut()
         } else {
             &mut []
         }
@@ -636,8 +636,44 @@ impl Default for SyntaxNode {
 }
 
 /// An inner node in the untyped syntax tree.
+///
+/// Provides convenient access to the data and children slice respectively via
+/// impls of the [`Deref`]/[`DerefMut`], and [`Index`]/[`IndexMut`] traits. Note
+/// that both [`DerefMut`] and [`IndexMut`] will implicitly clone if there is
+/// more than one reference to the underlying [`Arc`].
 #[derive(Clone, Eq, PartialEq, Hash)]
-struct InnerNode {
+struct InnerNode(ArcHeaderSlice<InnerData, SyntaxNode>);
+
+impl Deref for InnerNode {
+    type Target = InnerData;
+
+    fn deref(&self) -> &Self::Target {
+        self.0.header()
+    }
+}
+
+impl DerefMut for InnerNode {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        self.0.header_mut()
+    }
+}
+
+impl<Idx: SliceIndex<[SyntaxNode]>> Index<Idx> for InnerNode {
+    type Output = Idx::Output;
+
+    fn index(&self, index: Idx) -> &Self::Output {
+        self.0.slice().index(index)
+    }
+}
+
+impl<Idx: SliceIndex<[SyntaxNode]>> IndexMut<Idx> for InnerNode {
+    fn index_mut(&mut self, index: Idx) -> &mut Self::Output {
+        self.0.slice_mut().index_mut(index)
+    }
+}
+
+#[derive(Clone, Eq, PartialEq, Hash)]
+struct InnerData {
     /// The byte length of the node in the source.
     len: usize,
     /// The number of nodes in the whole subtree, including this node.
@@ -647,29 +683,33 @@ struct InnerNode {
     diagnosis: Diagnosis,
     /// The upper bound of this node's numbering range.
     upper: u64,
-    /// This node's children, losslessly make up this node.
-    ///
-    /// We use a `Box<[SyntaxNode]>` instead of a `Vec<SyntaxNode>` to reduce
-    /// storage size since we always construct an inner node from a full array
-    /// of nodes.
-    children: Box<[SyntaxNode]>,
 }
 
 impl InnerNode {
     /// Create a new inner node with the given children.
-    fn new(vec: Vec<SyntaxNode>) -> Self {
+    fn new(children: Vec<SyntaxNode>) -> Self {
         let mut len = 0;
         let mut descendants = 1;
         let mut diagnosis = Diagnosis::default();
 
-        let children = vec.into_boxed_slice();
         for child in &children {
             len += child.len();
             descendants += child.descendants();
             diagnosis = diagnosis.or(child.diagnosis());
         }
 
-        Self { len, descendants, diagnosis, upper: 0, children }
+        Self(ArcHeaderSlice::new(
+            InnerData { len, descendants, diagnosis, upper: 0 },
+            children,
+        ))
+    }
+
+    fn children(&self) -> &[SyntaxNode] {
+        self.0.slice()
+    }
+
+    fn children_mut(&mut self) -> &mut [SyntaxNode] {
+        self.0.slice_mut()
     }
 
     /// Assign span numbers `within` an interval to this node's subtree or just
@@ -684,10 +724,9 @@ impl InnerNode {
         // Determine how many nodes we will number.
         let descendants = match &range {
             Some(range) if range.is_empty() => return Ok(()),
-            Some(range) => self.children[range.clone()]
-                .iter()
-                .map(SyntaxNode::descendants)
-                .sum::<usize>(),
+            Some(range) => {
+                self[range.clone()].iter().map(SyntaxNode::descendants).sum::<usize>()
+            }
             None => self.descendants,
         };
 
@@ -713,8 +752,8 @@ impl InnerNode {
         }
 
         // Number the children.
-        let len = self.children.len();
-        for child in &mut self.children[range.unwrap_or(0..len)] {
+        let len = self.children().len();
+        for child in &mut self[range.unwrap_or(0..len)] {
             let end = start + child.descendants() as u64 * stride;
             child.numberize(id, start..end)?;
             start = end;
@@ -728,11 +767,11 @@ impl InnerNode {
         self.len == other.len
             && self.descendants == other.descendants
             && self.diagnosis == other.diagnosis
-            && self.children.len() == other.children.len()
+            && self.children().len() == other.children().len()
             && self
-                .children
+                .children()
                 .iter()
-                .zip(&other.children)
+                .zip(other.children().iter())
                 .all(|(a, b)| a.spanless_eq(b))
     }
 
@@ -754,8 +793,7 @@ impl InnerNode {
         // Trim off common prefix.
         while range.start < range.end
             && replacement_range.start < replacement_range.end
-            && self.children[range.start]
-                .spanless_eq(&replacement[replacement_range.start])
+            && self[range.start].spanless_eq(&replacement[replacement_range.start])
         {
             range.start += 1;
             replacement_range.start += 1;
@@ -764,8 +802,7 @@ impl InnerNode {
         // Trim off common suffix.
         while range.start < range.end
             && replacement_range.start < replacement_range.end
-            && self.children[range.end - 1]
-                .spanless_eq(&replacement[replacement_range.end - 1])
+            && self[range.end - 1].spanless_eq(&replacement[replacement_range.end - 1])
         {
             range.end -= 1;
             replacement_range.end -= 1;
@@ -773,14 +810,14 @@ impl InnerNode {
 
         let mut replacement_vec = replacement;
         let replacement = &replacement_vec[replacement_range.clone()];
-        let superseded = &self.children[range.clone()];
+        let superseded = &self[range.clone()];
 
         // Compute the new byte length.
-        self.len = self.len + replacement.iter().map(SyntaxNode::len).sum::<usize>()
+        let new_len = self.len + replacement.iter().map(SyntaxNode::len).sum::<usize>()
             - superseded.iter().map(SyntaxNode::len).sum::<usize>();
 
         // Compute the new number of descendants.
-        self.descendants = self.descendants
+        let new_descendants = self.descendants
             + replacement.iter().map(SyntaxNode::descendants).sum::<usize>()
             - superseded.iter().map(SyntaxNode::descendants).sum::<usize>();
 
@@ -790,22 +827,29 @@ impl InnerNode {
         // - Or, if our replacement has errors _and_ warnings, we can use that
         // - Otherwise, we need to update based on all of the children _outside_
         //   the replaced range in case we replaced the erroneous children
-        let replaced_diagnosis = Diagnosis::any(replacement);
-        if !self.diagnosis.either() || replaced_diagnosis.both() {
-            self.diagnosis = replaced_diagnosis;
-        } else {
-            self.diagnosis = replaced_diagnosis.or(Diagnosis::or(
-                Diagnosis::any(&self.children[..range.start]),
-                Diagnosis::any(&self.children[range.end..]),
-            ));
-        }
+        let new_diagnosis = {
+            let replaced_diagnosis = Diagnosis::any(replacement);
+            if !self.diagnosis.either() || replaced_diagnosis.both() {
+                replaced_diagnosis
+            } else {
+                replaced_diagnosis.or(Diagnosis::or(
+                    Diagnosis::any(&self[..range.start]),
+                    Diagnosis::any(&self[range.end..]),
+                ))
+            }
+        };
 
         // Perform the replacement.
-        self.children = {
-            let mut vec = std::mem::take(&mut self.children).into_vec();
-            vec.splice(range.clone(), replacement_vec.drain(replacement_range.clone()));
-            vec.into_boxed_slice()
-        };
+        self.0.replace_range(
+            InnerData {
+                len: new_len,
+                descendants: new_descendants,
+                diagnosis: new_diagnosis,
+                upper: self.upper,
+            },
+            range.clone(),
+            replacement_vec.drain(replacement_range.clone()),
+        );
         range.end = range.start + replacement_range.len();
 
         // Renumber the new children. Retries until it works, taking
@@ -813,7 +857,7 @@ impl InnerNode {
         let mut left = 0;
         let mut right = 0;
         let max_left = range.start;
-        let max_right = self.children.len() - range.end;
+        let max_right = self.children().len() - range.end;
         loop {
             let renumber = range.start - left..range.end + right;
 
@@ -825,7 +869,7 @@ impl InnerNode {
             let start_number = renumber
                 .start
                 .checked_sub(1)
-                .and_then(|i| self.children.get(i))
+                .and_then(|i| self.children().get(i))
                 .map_or(span.number() + 1, |child| child.upper());
 
             // The upper bound for renumbering is either
@@ -834,7 +878,7 @@ impl InnerNode {
             // - or this node's upper bound if renumbering ends behind the last
             //   child.
             let end_number = self
-                .children
+                .children()
                 .get(renumber.end)
                 .map_or(self.upper, |next| next.span().number());
 
@@ -865,15 +909,15 @@ impl InnerNode {
     ) {
         self.len = self.len + new_len - prev_len;
         self.descendants = self.descendants + new_descendants - prev_descendants;
-        self.diagnosis = Diagnosis::any(&self.children);
+        self.diagnosis = Diagnosis::any(self.children());
     }
 
     /// Format the inner node with its `SyntaxKind` for debugging.
     fn debug_fmt(&self, f: &mut Formatter, kind: SyntaxKind) -> fmt::Result {
         write!(f, "{kind:?}: {}", self.len)?;
-        if !self.children.is_empty() {
+        if !self.children().is_empty() {
             f.write_str(" ")?;
-            f.debug_list().entries(&self.children).finish()?;
+            f.debug_list().entries(self.children()).finish()?;
         }
         Ok(())
     }
