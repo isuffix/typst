@@ -648,16 +648,21 @@ struct InnerNode {
     /// The upper bound of this node's numbering range.
     upper: u64,
     /// This node's children, losslessly make up this node.
-    children: Vec<SyntaxNode>,
+    ///
+    /// We use a `Box<[SyntaxNode]>` instead of a `Vec<SyntaxNode>` to reduce
+    /// storage size since we always construct an inner node from a full array
+    /// of nodes.
+    children: Box<[SyntaxNode]>,
 }
 
 impl InnerNode {
     /// Create a new inner node with the given children.
-    fn new(children: Vec<SyntaxNode>) -> Self {
+    fn new(vec: Vec<SyntaxNode>) -> Self {
         let mut len = 0;
         let mut descendants = 1;
         let mut diagnosis = Diagnosis::default();
 
+        let children = vec.into_boxed_slice();
         for child in &children {
             len += child.len();
             descendants += child.descendants();
@@ -743,6 +748,9 @@ impl InnerNode {
         let Some(id) = span.id() else { return Err(Unnumberable) };
         let mut replacement_range = 0..replacement.len();
 
+        // TODO: Instead of trimming common suffix/prefixes, could we just build
+        // a range that needs to be renumbered?
+
         // Trim off common prefix.
         while range.start < range.end
             && replacement_range.start < replacement_range.end
@@ -793,8 +801,11 @@ impl InnerNode {
         }
 
         // Perform the replacement.
-        self.children
-            .splice(range.clone(), replacement_vec.drain(replacement_range.clone()));
+        self.children = {
+            let mut vec = std::mem::take(&mut self.children).into_vec();
+            vec.splice(range.clone(), replacement_vec.drain(replacement_range.clone()));
+            vec.into_boxed_slice()
+        };
         range.end = range.start + replacement_range.len();
 
         // Renumber the new children. Retries until it works, taking
