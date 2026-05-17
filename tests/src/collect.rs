@@ -708,7 +708,7 @@ impl<'a> Parser<'a> {
                     };
                     pdf_standard = serde_yaml::from_str(param)
                         .inspect_err(|e| {
-                            self.error(format!("unknown pdf standard `{param}`: {e}"))
+                            self.error(format!("unknown pdf standard `{param}`: {e}"));
                         })
                         .ok();
                 }

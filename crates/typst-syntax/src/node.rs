@@ -185,10 +185,10 @@ impl SyntaxNode {
         match &mut self.0 {
             NodeKind::Leaf(leaf) => leaf.span = f(offset..offset + leaf.len()),
             NodeKind::Inner(inner) => {
-                Arc::make_mut(inner).synthesize_with_impl(offset, f)
+                Arc::make_mut(inner).synthesize_with_impl(offset, f);
             }
             NodeKind::Error(node) => {
-                Arc::make_mut(node).error.span = f(offset..offset + node.len())
+                Arc::make_mut(node).error.span = f(offset..offset + node.len());
             }
         }
     }

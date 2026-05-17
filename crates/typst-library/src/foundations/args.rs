@@ -89,7 +89,7 @@ impl Args {
                 name: None,
                 value: Spanned::new(value, span),
             },
-        )
+        );
     }
 
     /// Push a positional argument.
@@ -98,7 +98,7 @@ impl Args {
             span: self.span,
             name: None,
             value: Spanned::new(value, span),
-        })
+        });
     }
 
     /// Consume and cast the first positional argument if there is one.

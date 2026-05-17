@@ -151,7 +151,7 @@ impl<'a> CssWriter<'a> {
     }
 
     fn emit(&mut self, value: impl ToCss) {
-        value.emit(self)
+        value.emit(self);
     }
 
     fn write(&mut self, value: &str) {

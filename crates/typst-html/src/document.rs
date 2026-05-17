@@ -325,7 +325,7 @@ fn head_element(info: &DocumentInfo, has_equations: bool) -> HtmlElement {
                 .with_attr(attr::name, "authors")
                 .with_attr(attr::content, info.author.join(", "))
                 .into(),
-        )
+        );
     }
 
     if !info.keywords.is_empty() {
@@ -334,7 +334,7 @@ fn head_element(info: &DocumentInfo, has_equations: bool) -> HtmlElement {
                 .with_attr(attr::name, "keywords")
                 .with_attr(attr::content, info.keywords.join(", "))
                 .into(),
-        )
+        );
     }
 
     if has_equations {
@@ -345,7 +345,7 @@ fn head_element(info: &DocumentInfo, has_equations: bool) -> HtmlElement {
                     Span::detached(),
                 )])
                 .into(),
-        )
+        );
     }
 
     HtmlElement::new(tag::head).with_children(children)

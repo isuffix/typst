@@ -483,6 +483,6 @@ mod tests {
         assert_eq!(
             ams_version,
             Err("failed to find package @preview/unequivocal-ams".into())
-        )
+        );
     }
 }

@@ -86,7 +86,7 @@ fn shape_impl<'a>(
                     y_offset: Em::zero(),
                     range: 0..text.len().saturating_as(),
                     span: (Span::detached(), 0),
-                })
+                });
             };
             text.chars().for_each(add_glyph);
             ctx.font = Some(font);

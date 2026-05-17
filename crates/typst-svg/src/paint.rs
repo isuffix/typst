@@ -338,7 +338,7 @@ impl SVGRenderer<'_> {
                 .attr("height", size.y.to_pt())
                 .attr("patternUnits", "userSpaceOnUse")
                 .attr_with("viewBox", |attr| {
-                    attr.push_nums([0.0, 0.0, size.x.to_pt(), size.y.to_pt()])
+                    attr.push_nums([0.0, 0.0, size.x.to_pt(), size.y.to_pt()]);
                 })
                 .with(|pattern| {
                     // Render the frame.

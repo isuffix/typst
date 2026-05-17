@@ -321,7 +321,7 @@ pub(crate) fn handle_frame(
             FrameItem::Text(t) => handle_text(fc, t, surface, gc)?,
             FrameItem::Shape(s, span) => handle_shape(fc, s, surface, gc, *span)?,
             FrameItem::Image(image, size, span) => {
-                handle_image(gc, fc, image, *size, surface, *span)?
+                handle_image(gc, fc, image, *size, surface, *span)?;
             }
             FrameItem::Link(dest, size) => handle_link(fc, gc, dest, *size)?,
             FrameItem::Tag(Tag::Start(_, flags)) => {

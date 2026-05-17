@@ -1411,7 +1411,7 @@ pub fn features(styles: StyleChain) -> Vec<Feature> {
     }
 
     for (tag, value) in styles.get_cloned(TextElem::features).0 {
-        tags.push(Feature::new(tag, value, ..))
+        tags.push(Feature::new(tag, value, ..));
     }
 
     tags
@@ -1544,7 +1544,7 @@ fn check_font_list(engine: &mut Engine, list: &Spanned<FontList>) {
                          incorrectly";
                         hint: "try installing a static version of \"{}\" instead",
                             family.as_str();
-                    ))
+                    ));
                 }
             }
             None => engine.sink.warn(warning!(
