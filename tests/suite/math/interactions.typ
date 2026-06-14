@@ -197,7 +197,7 @@ $ a length a ^ length $
 
 --- math-size-space paged html ---
 $ x space x script(space) x sscript(space) x \
-  x^inline(space) x^space x^sscript(space) x $
+  x^(inline(space)) x^space x^(sscript(space)) x $
 
 --- math-size-arbitrary-content paged ---
 // Test sizing of both relative and absolute non math content in math sizes.

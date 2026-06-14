@@ -1246,7 +1246,7 @@ pub fn quo(
 /// The $p$-norm of $x_1, ..., x_n$ is defined as follows:
 /// $
 ///   cases(
-///     (sum_(i=1)^n abs(x_i)^p)^frac(style: "horizontal", 1, p)
+///     (sum_(i=1)^n abs(x_i)^p)^(frac(style: "horizontal", 1, p))
 ///       quad &"if" 0 < p < +oo,
 ///     max_(i=1)^n abs(x_i) quad &"if" p = +oo,
 ///   )
