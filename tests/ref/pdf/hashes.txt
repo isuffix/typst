@@ -1061,7 +1061,7 @@ bb6079afecb39d5756601563eac59cfa math-at-par-end
 470432e3b62a9d2aecb632b072efdf68 math-attach-default-placement
 3ee585918e3f8c33aab547d064dd09cf math-attach-descender-collision
 44e5708fc5b3e04854f566f86f08d5a2 math-attach-double-chain
-4846797202a4ce7b44939bfa8ea832fe math-attach-followed-by-func-call
+2874b3e6d5c73f13471bb78f0cbc2cbd math-attach-followed-by-func-call
 a3ec2977f17711808d5e210b2fdfba81 math-attach-force-scripts-and-limits
 91fb4f0175c5ffcd06ec8b0e964774be math-attach-high
 b0104ca79a0d3c928604790e315c3745 math-attach-horizontal-align
@@ -1154,7 +1154,7 @@ aed09775903e20606b66f7bce95e2318 math-frac-gap
 400ced3d9b21941383b090305815ded9 math-frac-horizontal-explicit
 371feb54e54ac6a1d08c7c4f5a604484 math-frac-horizontal-lr-paren
 e7d9e8dee31c184289930945c694187f math-frac-horizontal-nonparen-brackets
-1ac3201707716269872720dc43bf752f math-frac-implicit-func
+0385d952e61d68f3fce17223d94a52e6 math-frac-implicit-func
 abd5f5e56d1bbdb776ccde07ae48fc88 math-frac-large
 abcbfe9a0ef8333e1f3857a201748cff math-frac-line-fill-stroke
 b36b54a85ecc6a743062209c5d321bb6 math-frac-paren-removal

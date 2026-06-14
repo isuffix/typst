@@ -48,8 +48,13 @@ $ A_(2(z))          &quad A_2(z)          &quad A_2 (z) \
   f_(pi(x))         &quad f_ pi(x)        &quad f_pi (x) \
   ->^(subset.eq(*)) &quad ->^subset.eq(*) &quad ->^subset.eq (*) \
   perp_(arrow.l(j)) &quad perp_arrow.l(j) &quad perp_arrow.l (j) \
-  e^(abs(gamma))    &quad e^abs(gamma)    &quad /*error, below*/
+  e^(abs(gamma))    &quad /*error, below*/&quad /*error, below*/
 $
+
+--- math-attach-func-call-error-no-space eval ---
+// Error: 5-8 this does not call the `abs` function
+// Hint: 5-8 to call the function, specify arguments in parentheses: `abs()`
+$ e^abs(gamma) $
 
 --- math-attach-func-call-error-space eval ---
 // Error: 5-8 this does not call the `abs` function
