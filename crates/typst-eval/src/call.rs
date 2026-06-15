@@ -16,6 +16,7 @@ use typst_syntax::ast::{self, AstNode};
 use typst_syntax::{Span, Spanned, SyntaxNode};
 use typst_utils::{LazyHash, Protected};
 
+use crate::math::Operand;
 use crate::{
     Access, Eval, FlowEvent, Route, Vm, call_method_mut, hint_if_shadowed_std,
     is_dict_mutating_method, is_mutating_method,
@@ -85,12 +86,16 @@ impl Eval for ast::MathCall<'_> {
     type Output = Value;
 
     fn eval(self, vm: &mut Vm) -> SourceResult<Self::Output> {
-        eval_math_call(vm, self)
+        eval_math_call(vm, self, None)
     }
 }
 
 /// Evaluate a function call in math.
-fn eval_math_call(vm: &mut Vm, math_call: ast::MathCall) -> SourceResult<Value> {
+pub(crate) fn eval_math_call(
+    vm: &mut Vm,
+    math_call: ast::MathCall,
+    parent_op: Option<Operand>,
+) -> SourceResult<Value> {
     let span = math_call.span();
     let callee = math_call.callee();
     let mut target_span = Span::detached();
@@ -157,8 +162,25 @@ fn eval_math_call(vm: &mut Vm, math_call: ast::MathCall) -> SourceResult<Value> 
             call_func(vm, func, args, span)
         }
         FieldCallee::NonFunc(callee_value, _) => {
+            // An unparsed function call as the operand of an operator. This can
+            // happen on the num/denom of fractions `pi()/zeta()`, the base of
+            // an attachment `mu(x)^2`, or the body of a Unicode root `√nu(x)`.
+            if let Some(_op) = parent_op {
+                let callee = callee.to_untyped().full_text();
+                let args = args.to_untyped().full_text();
+                bail!(
+                    span, "notation is ambiguous";
+                    hint: "this was grouped like a function call, but `{callee}` is \
+                           not a function";
+                    hint: "to display `{callee}` and `{args}` together, add parentheses: \
+                           `({callee}{args})`";
+                    hint: "to display `{callee}` and `{args}` separately, add a space: \
+                           `{callee} {args}`";
+                );
+            }
             let parens = unparse_math_args(vm, args, callee)?;
-            Ok(Value::Content(callee_value.display().spanned(callee.span()) + parens))
+            let unparsed = callee_value.display().spanned(callee.span()) + parens;
+            Ok(Value::Content(unparsed))
         }
     }
 }

@@ -164,7 +164,6 @@ a1885c32e329c19097b35739551a5657 math-attach-mixed
 18c45db28d043c69a68ec9e6a50dc0f1 math-attach-nested-base
 91e7127ce87e38f92c4c7a41294d8aee math-attach-nested-base-bad-placement
 947c8f3d288f2f9c25225ba54fdbe044 math-attach-nested-deep-base
-4e3558f2519456cf2e14222fbaf1b29e math-attach-non-func-prefix
 22b7ebb3ea6e5634fd812d48161f68d0 math-attach-postscripts
 ae65fc013cb4b1d3089357fd45184084 math-attach-prescripts
 76fd4460cbbbbe6ac598f8720c0aa6ac math-attach-scripts-extended-shapes
@@ -333,6 +332,7 @@ bfabd4822b54d453495c59635ce9ed8d math-root-show-rule-2
 a9782715bc2e9bfa4a8da9d57981ff9f math-root-show-rule-5
 b6cf4d2722347e612f552567323351f5 math-root-syntax
 e6a705d306743c3b782f0604adec3cb8 math-root-syntax-prec
+499ed500b9702951a19b38701cfc8b28 math-root-syntax-prec-call
 37f01369c10bc5a888492d9a1e99f1b0 math-shorthands-noncontinuable
 2c965f097f32098d6f5ce87b2145e881 math-size
 602acbb1d440854ba2210898e300235e math-size-resolve
