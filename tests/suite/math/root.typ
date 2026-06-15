@@ -50,6 +50,23 @@ $ (√2+3) = (sqrt(2)+3) $
 $ √a/b ∛a_b ∜f' √n! \
   √a b^c  √a (b)^c  √a(b)^c $
 
+--- math-root-syntax-prec-call paged html ---
+$ √cal(R)/√frak(E) $
+
+--- math-root-syntax-prec-call-non-func eval ---
+// Error: 4-9 notation is ambiguous
+// Hint: 4-9 this was grouped like a function call, but `mu` is not a function
+// Hint: 4-9 to display `mu` and `(x)` together, add parentheses: `(mu(x))`
+// Hint: 4-9 to display `mu` and `(x)` separately, add a space: `mu (x)`
+$ √mu(x) $
+
+--- math-root-syntax-prec-call-non-func-frac eval ---
+// Error: 4-10 notation is ambiguous
+// Hint: 4-10 this was grouped like a function call, but `mu` is not a function
+// Hint: 4-10 to display `mu` and `(nu)` together, add parentheses: `(mu(nu))`
+// Hint: 4-10 to display `mu` and `(nu)` separately, add a space: `mu (nu)`
+$ √mu(nu)/"moo" $
+
 --- math-root-syntax-missing-side eval ---
 // Error: 5 expected an expression to the right of the operator
 // Error: 8 expected an expression to the right of the operator

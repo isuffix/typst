@@ -34,13 +34,21 @@ $ (dif y)/(dif x), dif/x, x/dif, dif/dif \
 $ 1/2/3 = (1/2)/3 = 1/(2/3) $
 
 --- math-frac-tan-sin-cos paged html ---
-// A nice simple example of a simple trig property.
-$ tan(x) = sin(x) / cos(x) \
+// A simple example of a basic trig property.
+$ tan(x) = (sin(x)) / (cos(x)) \
   tan x = (sin x) / (cos x) $
+
+--- math-frac-tan-sin-cos-error eval ---
+// The fraction errors if we don't include the parentheses.
+// Hint: 12-18 this was grouped like a function call, but `sin` is not a function
+// Error: 12-18 notation is ambiguous
+// Hint: 12-18 to display `sin` and `(x)` together, add parentheses: `(sin(x))`
+// Hint: 12-18 to display `sin` and `(x)` separately, add a space: `sin (x)`
+$ tan(x) = sin(x) / cos(x) $
 
 --- math-frac-precedence paged html ---
 // Test precedence.
-$ a_1/b_2, 1/f(x), zeta(x)/2, "foo"[|x|]/2 \
+$ a_1/b_2, 1/f(x), (zeta(x))/2, "foo"[|x|]/2 \
   1.2/3.7, 2.3^3.4 \
   f [x]/2, phi [x]/2 \
   +[x]/2, 1(x)/2, 2[x]/2, 🏳️‍🌈[x]/2 \

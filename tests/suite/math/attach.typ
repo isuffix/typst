@@ -61,7 +61,11 @@ $ e^abs(gamma) $
 // Hint: 5-8 to call the function, specify arguments in parentheses: `abs()`
 $ e^abs (gamma) $
 
---- math-attach-non-func-prefix paged html ---
+--- math-attach-non-func-prefix eval ---
+// Error: 3-16 notation is ambiguous
+// Hint: 3-16 this was grouped like a function call, but `integral` is not a function
+// Hint: 3-16 to display `integral` and `(x+y)` together, add parentheses: `(integral(x+y))`
+// Hint: 3-16 to display `integral` and `(x+y)` separately, add a space: `integral (x+y)`
 $ integral(x+y)^2 $
 
 --- math-attach-nested paged html ---

@@ -45,7 +45,7 @@ impl Eval for ast::Math<'_> {
         let mut expr_offsets = self.expr_offsets();
         let iter = std::iter::from_fn(move || {
             let (expr, expr_start) = expr_offsets.next()?;
-            Some(expr.eval_display(vm).map_err(|math_error| {
+            Some(expr.eval_display(vm, None).map_err(|math_error| {
                 match math_error {
                     MathError::Normal(err) => err,
                     MathError::FuncLiteral { node, name } => {
@@ -144,9 +144,9 @@ impl Eval for ast::MathDelimited<'_> {
     type Output = Content;
 
     fn eval(self, vm: &mut Vm) -> SourceResult<Self::Output> {
-        let open = self.open().eval_display(vm)?;
+        let open = self.open().eval_display(vm, None)?;
         let body = self.body().eval(vm)?;
-        let close = self.close().eval_display(vm)?;
+        let close = self.close().eval_display(vm, None)?;
         Ok(LrElem::new(open + body + close).pack())
     }
 }
@@ -155,11 +155,11 @@ impl Eval for ast::MathAttach<'_> {
     type Output = Content;
 
     fn eval(self, vm: &mut Vm) -> SourceResult<Self::Output> {
-        let base = self.base().eval_display(vm)?;
+        let base = self.base().eval_display(vm, Some(Operand::AttachBase(self)))?;
         let mut elem = AttachElem::new(base);
 
         if let Some(expr) = self.top() {
-            elem.t.set(Some(expr.eval_display(vm)?));
+            elem.t.set(Some(expr.eval_display(vm, None)?));
         }
 
         // Always attach primes in scripts style (not limits style),
@@ -169,7 +169,7 @@ impl Eval for ast::MathAttach<'_> {
         }
 
         if let Some(expr) = self.bottom() {
-            elem.b.set(Some(expr.eval_display(vm)?));
+            elem.b.set(Some(expr.eval_display(vm, None)?));
         }
 
         Ok(elem.pack())
@@ -189,9 +189,9 @@ impl Eval for ast::MathFrac<'_> {
 
     fn eval(self, vm: &mut Vm) -> SourceResult<Self::Output> {
         let num_expr = self.num();
-        let num = num_expr.eval_display(vm)?;
+        let num = num_expr.eval_display(vm, Some(Operand::Numerator(self)))?;
         let denom_expr = self.denom();
-        let denom = denom_expr.eval_display(vm)?;
+        let denom = denom_expr.eval_display(vm, Some(Operand::Denominator(self)))?;
 
         let num_depar =
             matches!(num_expr, ast::Expr::Math(math) if math.was_deparenthesized());
@@ -211,19 +211,42 @@ impl Eval for ast::MathRoot<'_> {
     fn eval(self, vm: &mut Vm) -> SourceResult<Self::Output> {
         // Use `TextElem` to match `MathTextKind::Number` above.
         let index = self.index().map(|i| TextElem::packed(eco_format!("{i}")));
-        let radicand = self.radicand().eval_display(vm)?;
+        let radicand = self.radicand().eval_display(vm, Some(Operand::Root(self)))?;
         Ok(RootElem::new(radicand).with_index(index).pack())
     }
 }
 
+#[expect(unused, reason = "TODO: sub-ranges?")]
+pub(crate) enum Operand<'a> {
+    AttachBase(ast::MathAttach<'a>),
+    Numerator(ast::MathFrac<'a>),
+    Denominator(ast::MathFrac<'a>),
+    Root(ast::MathRoot<'a>),
+}
+
 trait ExprExt<'a> {
-    fn eval_display(self, vm: &mut Vm) -> Result<Content, MathError<'a>>;
+    fn eval_display(
+        self,
+        vm: &mut Vm,
+        parent_op: Option<Operand>,
+    ) -> Result<Content, MathError<'a>>;
 }
 
 impl<'a> ExprExt<'a> for ast::Expr<'a> {
     /// Evaluate the expression as content for math.
-    fn eval_display(self, vm: &mut Vm) -> Result<Content, MathError<'a>> {
-        let value = self.eval(vm)?;
+    fn eval_display(
+        self,
+        vm: &mut Vm,
+        parent_op: Option<Operand>,
+    ) -> Result<Content, MathError<'a>> {
+        let value = if parent_op.is_some()
+            && let ast::Expr::MathCall(math_call) = self
+        {
+            crate::call::eval_math_call(vm, math_call, parent_op)?
+        } else {
+            self.eval(vm)?
+        };
+
         // Symbols can cast to functions, but we don't error since they're also
         // valid as content.
         if !matches!(value, Value::Symbol(_))
