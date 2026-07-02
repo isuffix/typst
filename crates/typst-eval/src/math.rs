@@ -1,7 +1,7 @@
 use ecow::{EcoString, EcoVec, eco_format, eco_vec};
 use typst_library::diag::{At, SourceDiagnostic, SourceResult, error, warning};
 use typst_library::foundations::{
-    Content, Func, NativeElement, Symbol, SymbolElem, Value,
+    Content, Func, NativeElement, Reflect, Symbol, SymbolElem, Value,
 };
 use typst_library::math::{
     AlignPointElem, AttachElem, EquationElem, FracElem, LrElem, PrimesElem, RootElem,
@@ -226,12 +226,11 @@ impl<'a> ExprExt<'a> for ast::Expr<'a> {
         let value = self.eval(vm)?;
         // Symbols can cast to functions, but we don't error since they're also
         // valid as content.
-        if !matches!(value, Value::Symbol(_))
-            && let Ok(func_value) = value.clone().cast::<Func>()
-        {
+        if !matches!(value, Value::Symbol(_)) && Func::castable(&value) {
+            let func: Func = value.cast().unwrap();
             return Err(MathError::FuncLiteral {
                 node: self.to_untyped(),
-                name: func_value.name().map(|name| name.into()),
+                name: func.name().map(|name| name.into()),
             });
         }
         Ok(value.display().spanned(self.span()))
