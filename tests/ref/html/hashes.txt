@@ -312,7 +312,7 @@ eb852535fc722b1a0711e7db2645d96e math-optical-size-prime-large-operator
 3c6ec52108317ebf9d0e83a2d8a12d2a math-primes-ambiguous-base-and-subscript
 39402f9d6c3f1e91a03e7a6002efffd4 math-primes-attach
 55d73e41a455bc42e5d22e9c592b563f math-primes-complex
-caf9614a6e466b7a87d1d930c0fb1ef2 math-primes-factorial
+f7b32e6d9ac6320c46dd037bb6acd604 math-primes-factorial
 5e7d2ba2b74db51fb27468b9bf302cc7 math-primes-limits
 f5e6dc502f6ca0897108e326e1f33146 math-primes-merge-inner-prime
 69d0934dab1161dbd4a66a67c68a4ac7 math-primes-merge-top
