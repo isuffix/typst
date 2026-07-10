@@ -1058,7 +1058,7 @@ a67545a0cd12cd6ec811530d15dcae14 math-align-wider-first-column
 890b3d7cf0611b22ec08cbbe1dc6bb97 math-at-line-start
 bb6079afecb39d5756601563eac59cfa math-at-par-end
 962eb66d250bdc76d23167c3ca938cc3 math-at-par-start
-0756e8508b9268687645ad1d2ff99c30 math-attach-chain-interior-parens
+4fb59174b011fea4eba159ed85c7989b math-attach-chain-interior-parens
 0e5daf68869625e55ee6dd004aa9e2cb math-attach-chain-one-prime
 af3deca96d7b750b6749b2cfc8597a06 math-attach-chain-two-primes
 470432e3b62a9d2aecb632b072efdf68 math-attach-default-placement
@@ -1567,7 +1567,7 @@ b2912678dde1faa17644b690888aac2d raw-highlight-rust
 e9f30f8fd86c4ef0c485da402d80c1ad raw-highlight-typ
 6b69640379e8510ce7eeac2ccf736636 raw-highlight-typ-invalid-ints
 86e277f332abfe98969446179388de87 raw-highlight-typc
-b3dc5b52eccfd8ce89ab3da2bffdca42 raw-highlight-typm
+46bcf834db44fd47874d26802fee8ebe raw-highlight-typm
 c1d4785858966bfdc4a162b60e2cf560 raw-highlight-typm-idents
 e04cdabc7369605b8f15feae6de90d1b raw-inline-multiline
 d69aabfae7bbc90a9c707fc9da0eaf64 raw-line

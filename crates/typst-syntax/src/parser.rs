@@ -361,7 +361,10 @@ fn math_expr_prec(p: &mut Parser, min_prec: u8, stop_set: SyntaxSet) {
         }
 
         // Slash is the only operator that removes parens from its left operand.
-        if wrapper == SyntaxKind::MathFrac {
+        if wrapper == SyntaxKind::MathFrac
+            // Hack to remove parens in `a_(b)_c` and such
+            || (min_prec == 4 && syntax_set!(Hat, Underscore).contains(op_kind))
+        {
             math_unparen(p, m);
         }
 
