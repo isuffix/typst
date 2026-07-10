@@ -1258,7 +1258,7 @@ c979565e9c05799bf5994f3fff070a82 math-primes-after-subscript
 c87ac9bf06aedf73e8bfc2d50a17df40 math-primes-ambiguous-base-and-subscript
 1d152a5df00ad14efcdf4bf8c245c063 math-primes-attach
 3f1dc1af14c64c70d1b517bf2fbacb8e math-primes-complex
-ee956540ad54f901a2d726db2fb99dc5 math-primes-factorial
+60430fcb0d61ebc00c658f19d723a7b9 math-primes-factorial
 a7c08af0c94cdbe1aeacd6e684b6b0e5 math-primes-limits
 fd81b6f8bed7914d0e06831d342f5cd1 math-primes-merge-inner-prime
 0c6b58dfb59aaa9ed01641247399a8d5 math-primes-merge-top

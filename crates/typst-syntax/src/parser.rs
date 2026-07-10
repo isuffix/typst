@@ -405,10 +405,10 @@ fn math_op(
 ) -> Option<(SyntaxKind, Option<ast::Assoc>, u8)> {
     let op = match kind {
         SyntaxKind::Slash => (SyntaxKind::MathFrac, Some(ast::Assoc::Left), 1),
-        SyntaxKind::Underscore => (SyntaxKind::MathAttach, Some(ast::Assoc::Right), 3),
-        SyntaxKind::Hat => (SyntaxKind::MathAttach, Some(ast::Assoc::Right), 3),
-        SyntaxKind::MathPrimes if !had_trivia => (SyntaxKind::MathAttach, None, 3),
-        SyntaxKind::Bang if !had_trivia => (SyntaxKind::Math, None, 4),
+        SyntaxKind::Underscore => (SyntaxKind::MathAttach, Some(ast::Assoc::Right), 4),
+        SyntaxKind::Hat => (SyntaxKind::MathAttach, Some(ast::Assoc::Right), 4),
+        SyntaxKind::MathPrimes if !had_trivia => (SyntaxKind::MathAttach, None, 4),
+        SyntaxKind::Bang if !had_trivia => (SyntaxKind::Math, None, 3),
         _ => return None,
     };
     Some(op)

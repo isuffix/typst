@@ -307,7 +307,7 @@ c2b164b3cd0fc8bd26e33f69b894da49 math-optical-size-primes
 d1bf3b4f5aed4df1ba51ce7dd30dcaf6 math-primes-ambiguous-base-and-subscript
 2b9f1871c385dd9275546c6cce99272e math-primes-attach
 ea3851e281da3beb0d65f7393a44f165 math-primes-complex
-2f9110a7c55e6a39e8db0693cb72ba2a math-primes-factorial
+c31025f3740169ea5a0120405ccf85b1 math-primes-factorial
 dd1b7c0c6f3d059c7ff6e2cf84d5a772 math-primes-limits
 23d187f8756edf4acd1e00475a5b9a1c math-primes-merge-inner-prime
 b18768d480641954297ca8f528bba007 math-primes-merge-top

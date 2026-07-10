@@ -43,6 +43,8 @@ $
   n!'! &quad k! '! &quad l_a!'!^b \
 $
 $
+  // TODO: Is it OK that `a^1!^2` groups like `(a^1 !)^2`?
+  // Or should we treat it like `(a^1) (!^2)` instead?
   a^b'^c!'^d'!' &quad a^b'!^c!'^d'!' \
   e_f'_g!'_h'!' &quad e_f'!_g!'_h'!' \
 $
