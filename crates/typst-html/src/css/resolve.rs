@@ -52,7 +52,7 @@ impl Stylesheet {
     /// Format the CSS stylesheet.
     pub fn display(&self) -> impl Display {
         typst_utils::display(|f| {
-            for (selector, props) in self.styles.iter() {
+            for (selector, props) in &self.styles {
                 writeln!(f, "{selector} {{")?;
                 for Property { name, value } in props.iter() {
                     writeln!(f, "  {name}: {value};")?;
@@ -162,7 +162,7 @@ impl<'a, 'b> Deref for ElemTree<'a, 'b> {
     }
 }
 
-impl<'a, 'b> DerefMut for ElemTree<'a, 'b> {
+impl DerefMut for ElemTree<'_, '_> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.inner
     }
@@ -337,7 +337,7 @@ fn pre_collect_elem<'b>(
     layers[layer] += 1;
 
     // Traverse children.
-    for child in element.children.iter() {
+    for child in &element.children {
         if let HtmlNode::Element(child) = child {
             pre_collect_elem(bump, props, selectors, layers, child, layer + 1);
         }
@@ -362,8 +362,8 @@ fn intern_str_selector<'b>(
 /// Simultaneously build both a depth-first and breadth-first list of elements,
 /// so an element's direct children and all its descendants can be efficiently
 /// queried.
-fn collect_elem<'a, 'b>(
-    ctx: &mut Collector<'a, 'b>,
+fn collect_elem<'a>(
+    ctx: &mut Collector<'a, '_>,
     parent: Option<ElemId>,
     layer: usize,
     element: &'a mut HtmlElement,
@@ -412,8 +412,8 @@ fn collect_props<'a, 'b>(
     ListSet::from_sorted(props)
 }
 
-fn collect_simple_selectors<'a, 'b>(
-    ctx: &mut Collector<'a, 'b>,
+fn collect_simple_selectors<'b>(
+    ctx: &mut Collector<'_, 'b>,
     elem_id: ElemId,
     element: &HtmlElement,
 ) -> ListSet<&'b [SimpleSelectorId]> {
@@ -444,7 +444,7 @@ fn collect_simple_selectors<'a, 'b>(
     selectors[classes_start..].sort_unstable();
     selectors.dedup();
 
-    for &selector in selectors.iter() {
+    for &selector in &selectors {
         let refs = ctx.selectors.simple.get_id_mut(selector);
         refs.elems.push(elem_id);
     }
@@ -511,17 +511,17 @@ impl<'b> Groups<'b, '_> {
     /// Create a new group and update the [`Self::group_by_prop`] lookup table.
     fn create_group(&mut self, props: BumpVec<'b, PropId>) {
         let group_id = self.groups.next_id();
-        for &prop in props.iter() {
+        for &prop in &props {
             self.props.get_id(prop).set_group(group_id);
         }
         self.groups.push(PropGroup::new(props));
     }
 }
 
-fn collect_prop_groups<'a, 'b>(
+fn collect_prop_groups<'b>(
     bump: &'b Bump,
     temp: &mut Bump,
-    elems_tree: &ElemTree<'a, 'b>,
+    elems_tree: &ElemTree<'_, 'b>,
     props: &IdMap<Property, PropRefs>,
 ) -> IdVec<PropGroup<'b>> {
     let mut ctx = Groups { props, groups: IdVec::new() };
@@ -553,7 +553,7 @@ fn collect_prop_groups<'a, 'b>(
 
         // Incrementally split up groups. If an element only has a subset of the
         // group's properties, split the group.
-        for &group_id in existing_groups.iter() {
+        for &group_id in &existing_groups {
             // Found an existing group, check if it needs to be split up.
             let group = ctx.groups.get_mut(group_id);
 
@@ -824,10 +824,10 @@ impl PartialOrd for HtmlTagKey {
     }
 }
 
-fn find_simple_group_selectors<'a, 'b>(
+fn find_simple_group_selectors<'b>(
     bump: &'b Bump,
     temp: &mut Bump,
-    elem_tree: &mut ElemTree<'a, 'b>,
+    elem_tree: &mut ElemTree<'_, 'b>,
     props: &IdMap<Property, PropRefs>,
     selectors: &mut Selectors<'b>,
 ) {
@@ -866,11 +866,11 @@ impl<T> ScratchSet<T> {
 }
 
 #[allow(clippy::too_many_arguments)]
-fn find_complex_group_selectors<'a, 'b>(
+fn find_complex_group_selectors<'b>(
     bump: &'b Bump,
     temp: &Bump,
     scratch: &mut ScratchSet<SimpleSelectorId>,
-    elem_tree: &ElemTree<'a, 'b>,
+    elem_tree: &ElemTree<'_, 'b>,
     selectors: &mut Selectors<'b>,
     group_id: GroupId,
     elem_id: ElemId,
@@ -893,7 +893,7 @@ fn find_complex_group_selectors<'a, 'b>(
         // Only collect the descendant ranges if a selector hasn't been cached.
         let descendant_ranges = LazyCell::new(|| {
             let mut ranges = BumpVec::new_in(temp);
-            for &elem_id in ancestor_selector_refs.elems.iter() {
+            for &elem_id in &ancestor_selector_refs.elems {
                 let elem = elem_tree.get(elem_id);
                 ranges.push(elem.descendants);
             }
@@ -957,9 +957,9 @@ fn complex_to_selector_id(
     SelectorId::new(simple_selectors.len() + complex_id.idx())
 }
 
-fn compute_descendant_selector_refs<'a, 'b>(
+fn compute_descendant_selector_refs<'b>(
     bump: &'b Bump,
-    elem_tree: &ElemTree<'a, 'b>,
+    elem_tree: &ElemTree<'_, 'b>,
     simple_selectors: &IdMap<SimpleSelector<'b>, SimpleSelectorRefs<'b>>,
     descendant_selector: SimpleSelectorId,
     descendant_ranges: &[IdRange<ElemId>],
@@ -985,7 +985,7 @@ fn compute_descendant_selector_refs<'a, 'b>(
             complex_refs.targetable.intersect(bump, &descendant.groups);
         }
     } else {
-        for &elem_id in child_selector_refs.elems.iter() {
+        for &elem_id in &child_selector_refs.elems {
             if !ranges_contain(descendant_ranges, elem_id) {
                 // Element is no descendant.
                 continue;
@@ -999,9 +999,9 @@ fn compute_descendant_selector_refs<'a, 'b>(
     complex_refs
 }
 
-fn compute_child_selector_refs<'a, 'b>(
+fn compute_child_selector_refs<'b>(
     bump: &'b Bump,
-    elem_tree: &ElemTree<'a, 'b>,
+    elem_tree: &ElemTree<'_, 'b>,
     child_selector: SimpleSelectorId,
     parents: &[ElemId],
 ) -> ComplexSelectorRefs<'b> {
@@ -1052,10 +1052,10 @@ fn ranges_contain<T>(ranges: &[IdRange<Id<T>>], id: Id<T>) -> bool {
     res.is_ok()
 }
 
-fn identify_groups<'a, 'b>(
+fn identify_groups<'b>(
     bump: &'b Bump,
     temp: &mut Bump,
-    elem_tree: &mut ElemTree<'a, 'b>,
+    elem_tree: &mut ElemTree<'_, 'b>,
     props: &IdMap<Property, PropRefs>,
     selectors: &mut Selectors<'b>,
     groups: &IdVec<PropGroup<'b>>,
@@ -1105,7 +1105,7 @@ fn identify_groups<'a, 'b>(
             } {}
 
             // Add the generated class.
-            for &elem_id in unidentified.iter() {
+            for &elem_id in &unidentified {
                 let elem = elem_tree.get_mut(elem_id);
                 if let Some(classes) = elem.attrs.get_mut(attr::class) {
                     classes.push(' ');
@@ -1225,11 +1225,11 @@ struct Bucket {
 ///
 /// ["Set cover problem"]: https://en.wikipedia.org/wiki/Set_cover_problem
 #[allow(clippy::too_many_arguments)]
-fn identify_group<'a, 'b>(
+fn identify_group<'b>(
     bump: &'b Bump,
     temp: &mut Bump,
     scratch: &mut ScratchSet<SimpleSelectorId>,
-    elem_tree: &ElemTree<'a, 'b>,
+    elem_tree: &ElemTree<'_, 'b>,
     props: &IdMap<Property, PropRefs>,
     selectors: &mut Selectors<'b>,
     group_id: GroupId,
@@ -1249,7 +1249,7 @@ fn identify_group<'a, 'b>(
 
     // Find class or type selectors that identify buckets of elements within the
     // current group, but no elements from other groups.
-    for &elem_id in group_elems.iter() {
+    for &elem_id in group_elems {
         let elem = elem_tree.get(elem_id);
 
         // Collect all targetable simple selectors.
@@ -1283,7 +1283,7 @@ fn identify_group<'a, 'b>(
             entry.or_default().num_elems += 1;
 
             if bucket_first_created {
-                for &selector in selector_list.iter() {
+                for &selector in selector_list {
                     let candidate =
                         selector_candidates.entry(selector).or_insert_with(|| {
                             let score = selectors.score(selector);
@@ -1380,7 +1380,7 @@ fn choose_selector_candidate<'b, F>(
     candidate.remaining_elems.set(0);
 
     // Eliminate the covered buckets.
-    for &bucket_id in candidate.buckets.iter() {
+    for &bucket_id in &candidate.buckets {
         let (list, bucket) = buckets.get_id_full(bucket_id);
         if bucket.eliminated.get() {
             continue;
@@ -1388,7 +1388,7 @@ fn choose_selector_candidate<'b, F>(
         bucket.eliminated.set(true);
 
         // Update the candidate element counts.
-        for selector in list.iter() {
+        for selector in *list {
             let candidate_id = selector_candidates.lookup_id(selector).unwrap();
             let candidate = selector_candidates.get_id(candidate_id);
             let remaining_elems = candidate.remaining_elems.get();

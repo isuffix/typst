@@ -178,7 +178,7 @@ pub struct IdVec<T> {
 
 impl<T> Default for IdVec<T> {
     fn default() -> Self {
-        Self { inner: Default::default() }
+        Self { inner: Vec::default() }
     }
 }
 
@@ -295,7 +295,7 @@ pub struct IdMap<K, V> {
 
 impl<K, V> Default for IdMap<K, V> {
     fn default() -> Self {
-        Self { inner: Default::default() }
+        Self { inner: IndexMap::default() }
     }
 }
 
