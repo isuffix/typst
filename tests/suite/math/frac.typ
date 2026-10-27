@@ -60,11 +60,11 @@ $
 --- math-frac-implicit-func paged html ---
 // Test other precedence interactions with implicit function calls.
 $
-  f'(x) / f_pi{x} \
-  sin^2(x) / f_0(x) quad f!(x) / g^(-1)(x) \
-  a_\u{2a}[|x} / a_"2a"{x|] quad f_pi.alt{x} / f_#math.pi.alt{x} \
-  a(b)_c(d)^e(f) / g(h)'_i(j)' \
-  (x)'(x)'(x)' / (x)'(x)'(x)' \
+  f'(x)/f_pi{x} \
+  sin^2(x)/f_0(x) quad f!(x)/g^(-1)(x) \
+  a_\u{2a}[|x}/a_"2a"{x|] quad f_pi.alt{x}/f_#math.pi.alt{x} \
+  a(b)_c(d)^e(f)/g(h)'_i(j)' \
+  (x)'(x)'(x)'/(x)'(x)'(x)' \
 $
 
 --- math-frac-precedence-xid-vs-alpha eval ---
@@ -119,7 +119,7 @@ $ (#v(2em)) / n $
 --- math-frac-skewed paged ---
 // Test skewed fractions
 #set math.frac(style: "skewed")
-$ a / b,  a / (b / c) $
+$ a / b ,  a / (b / c) $
 
 --- math-frac-horizontal-explicit paged html ---
 // Test that explicit fractions don't change parentheses

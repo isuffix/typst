@@ -3,7 +3,7 @@ use std::ops::{DerefMut, Index, IndexMut, Range};
 
 use ecow::{EcoString, eco_format};
 use rustc_hash::{FxHashMap, FxHashSet};
-use typst_utils::{defer, matching_delim};
+use typst_utils::{defer, matching_delim, math_class_vary_unary};
 
 use crate::set::{SyntaxSet, syntax_set};
 use crate::{Lexer, SyntaxKind, SyntaxMode, SyntaxNode, ast, set};
@@ -34,7 +34,11 @@ pub fn parse_math(text: &str) -> SyntaxNode {
     #[cfg(feature = "timing")]
     let _scope = typst_timing::TimingScope::new("parse math");
     let mut p = Parser::new(text, 0, SyntaxMode::Math);
-    math_exprs(&mut p, syntax_set!(End));
+    let (_, warning_index) = math_exprs(&mut p, syntax_set!(End));
+
+    // TODO: Update `finish` functions.
+    p.wrap_math_with_warnings(Marker(0), warning_index);
+
     p.finish_into(SyntaxKind::Math)
 }
 
@@ -237,36 +241,348 @@ fn equation(p: &mut Parser) {
 /// Parses the contents of a mathematical equation: `x^2 + 1`.
 fn math(p: &mut Parser, stop_set: SyntaxSet) {
     let m = p.marker();
-    math_exprs(p, stop_set);
-    p.wrap(m, SyntaxKind::Math);
+    let (_, warning_index) = math_exprs(p, stop_set);
+    p.wrap_math_with_warnings(m, warning_index);
 }
 
 /// Parses a sequence of math expressions. Returns the number of expressions
 /// parsed.
-fn math_exprs(p: &mut Parser, stop_set: SyntaxSet) -> usize {
+///
+/// Potentially warns for ambiguous notation between two expressions.
+/// TODO: Reword this
+fn math_exprs(p: &mut Parser, stop_set: SyntaxSet) -> (usize, MathWarningIndex) {
     debug_assert!(stop_set.contains(SyntaxKind::End));
-    let Some(p) = p.check_depth_until(stop_set) else { return 1 };
+
+    let warning_index = p.math_warning_index();
+    let Some(p) = p.check_depth_until(stop_set) else { return (1, warning_index) };
 
     /// We only allow these kinds at the top-level of a math expression, never
     /// directly inside an operator. That is, we produce an error for `&^2`, but
     /// not for `(&)^2`.
     const TOP_LEVEL: SyntaxSet = syntax_set!(Linebreak, MathAlignPoint);
 
+    let mut current_start = p.current_start();
+    let mut prev_start;
+    let mut adjacent_side: Option<MathSideView> = None;
+
+    // Parse any number of math expressions,
     let mut count = 0;
     while !p.at_set(stop_set) {
+        prev_start = current_start;
+        current_start = p.current_start();
+
         if p.at_set(TOP_LEVEL) {
             p.eat();
+            adjacent_side = None;
         } else {
-            math_expr_prec(p, 0, stop_set.union(TOP_LEVEL));
+            let mut sides = MathSides {
+                left: None,
+                right: MathSideView {
+                    atom: SyntaxKind::End,
+                    inner_offset: current_start,
+                    outer_op: None,
+                    inner_spaced_op: None,
+                },
+            };
+            math_expr_prec(p, &mut sides, 0, stop_set.union(TOP_LEVEL));
+
+            if let Some(prev_r_view) = adjacent_side
+                && let Some(new_l_view) = sides.left
+            {
+                maybe_warn_math(
+                    p,
+                    prev_start,
+                    prev_r_view,
+                    current_start,
+                    new_l_view,
+                    p.prev_end(),
+                );
+            }
+            // The previous right side is only adjacent if there is no trivia
+            // before the next expression.
+            adjacent_side = (!p.had_trivia()).then_some(sides.right);
         }
         count += 1;
     }
-    count
+    (count, warning_index)
+}
+
+/// A range of text that will be annotated with an ambiguity warning in math.
+#[derive(Debug, Clone)]
+struct MathAmbiguity {
+    atom_range: Range<usize>,
+    mid: usize,
+    outer_range: Range<usize>,
+    spaced_ops: [Option<SyntaxKind>; 2],
+}
+
+impl MathAmbiguity {
+    fn warn(self, text: &str, node: &mut SyntaxNode, node_offset: usize) {
+        let MathAmbiguity {
+            atom_range: Range { start: mut atom_start, end: mut atom_end },
+            mid,
+            outer_range: Range { mut start, mut end },
+            spaced_ops,
+        } = self;
+        let l_atom = &text[atom_start..mid];
+        let r_atom = &text[mid..atom_end];
+        let l_full = &text[start..mid];
+        let r_full = &text[mid..end];
+        start -= node_offset;
+        end -= node_offset;
+        atom_start -= node_offset;
+        atom_end -= node_offset;
+
+        let spaced_op_chars = spaced_ops.map(|kind| match kind {
+            Some(SyntaxKind::Underscore) => Some('_'),
+            Some(SyntaxKind::Slash) => Some('/'),
+            Some(SyntaxKind::Hat) => Some('^'),
+            Some(SyntaxKind::Root) => Some('√'), // TODO: Handle third/fourth roots.
+            _ => None,
+        });
+
+        let debug = false;
+        if debug {
+            // A compressed version of the warning useful for debugging.
+            node.warn_at(
+                atom_start..atom_end,
+                eco_format!(
+                    "{}|  Atoms: `{l_atom}{r_atom}`  |  Left `{l_full}`  |  Right `{r_full}`",
+                    match spaced_op_chars {
+                        [None, Some(r_op)] => eco_format!("Spaced: ` {r_op}`  "),
+                        [Some(l_op), None] => eco_format!("Spaced: `{l_op} `  "),
+                        [Some(l_op), Some(r_op)] => {
+                            eco_format!("Spaced: `{l_op} ` and ` {r_op}`  ")
+                        }
+                        [None, None] => eco_format!(""),
+                    }
+                ),
+            );
+        } else {
+            node.warn_at(atom_start..atom_end, "notation is ambiguous");
+            node.hint_at(
+                atom_start..atom_end,
+                eco_format!(
+                    "to display `{l_atom}` and `{r_atom}` together, \
+                    add parentheses: `({l_atom}{r_atom})`"
+                ),
+            );
+            node.hint_at(
+                start..end,
+                // atom_start..atom_end,
+                eco_format!(
+                    // "to display `{l_atom}` and `{r_atom}` separately, \
+                    "to display `{l_full}` and `{r_full}` separately, \
+                    add a space: `{l_atom} {r_atom}`"
+                ),
+            );
+            node.hint("the rendered output may not match your intent");
+
+            match spaced_op_chars {
+                [Some(op), None] | [None, Some(op)] => node.hint(eco_format!(
+                    "whitespace around `{op}` does not affect grouping"
+                )),
+                [Some(l_op), Some(r_op)] if l_op == r_op => node.hint(eco_format!(
+                    "whitespace around `{l_op}` does not affect grouping"
+                )),
+                [Some(l_op), Some(r_op)] => node.hint(eco_format!(
+                    "whitespace around `{l_op}` or `{r_op}` does not affect grouping"
+                )),
+                [None, None] => {}
+            }
+        }
+    }
+}
+
+fn maybe_warn_math(
+    p: &mut Parser,
+    outer_start: usize,
+    prev_r_view: MathSideView,
+    mid: usize,
+    new_l_view: MathSideView,
+    outer_end: usize,
+) {
+    let MathSideView {
+        atom: prev_atom,
+        inner_offset: mut atom_start,
+        outer_op: prev_op,
+        inner_spaced_op: prev_spaced,
+    } = prev_r_view;
+    let MathSideView {
+        atom: new_atom,
+        inner_offset: mut atom_end,
+        outer_op: new_op,
+        inner_spaced_op: new_spaced,
+    } = new_l_view;
+
+    // Treat un-spaced operators opposing a spaced frac or root as an atom for
+    // the warning. For `a/ f(x)/b` we suggest parenthesizing `(f(x)/b)` instead
+    // of just `f(x)`.
+    match (prev_spaced, new_spaced) {
+        (_, _) if true => {} // TODO: Either enable this or remove it.
+        (None, Some(SyntaxKind::Slash)) => atom_start = outer_start,
+        (Some(SyntaxKind::Slash | SyntaxKind::Root), None) => atom_end = outer_end,
+        _ => {}
+    }
+
+    let any_spaced_op = prev_spaced.is_some() || new_spaced.is_some();
+
+    let is_ambiguous = any_spaced_op || {
+        use SyntaxKind::*;
+
+        (prev_op.is_some() && matches!(prev_atom, MathSymbol | MathShorthand) && {
+            // Warn if a `MathClass=Vary|Unary` character (or the `-` shorthand)
+            // comes after any operator: `√-1`, `E_¬P`, or `x^+2/±y`.
+            let prev_atom_char = p.text[atom_start..mid].parse::<char>().ok();
+            prev_atom_char.is_some_and(math_class_vary_unary)
+                || prev_atom_char == Some('-')
+        }) || {
+            let confusable_op = (new_op == Some(MathFrac))
+                || matches!(prev_op, Some(MathFrac | MathRoot));
+
+            confusable_op
+                && match (prev_atom, new_atom) {
+                    // `"foo"()`, `f()`, `Pr[]`, `pi.alt[]`
+                    (Str | MathLetter | MathIdent | MathFieldAccess, MathDelimited) => {
+                        // Note that atom kinds are set before `MathDelimited`
+                        // is un-parenthesized into `Math`.
+                        true
+                    }
+                    // `2a`, `2pi`, `2pi.alt`, `2abs(x)`
+                    // (currently also includes `E[x]` via `Math`)
+                    (
+                        MathNumber,
+                        MathLetter | MathIdent | MathFieldAccess | MathCall | Math,
+                    ) => true,
+                    _ => false,
+                }
+        }
+    };
+
+    if is_ambiguous {
+        p.push_math_warning(MathAmbiguity {
+            atom_range: atom_start..atom_end,
+            mid,
+            outer_range: outer_start..outer_end,
+            spaced_ops: [prev_spaced, new_spaced],
+        });
+    }
+}
+
+struct MathSides {
+    left: Option<MathSideView>,
+    right: MathSideView,
+}
+
+/// The view of a math expression from its left or right side. Used to add
+/// warning annotations to ambiguous math expressions such as `f(x)/2`.
+struct MathSideView {
+    /// The kind of the outermost atomic expression for this side.
+    ///
+    /// The only non-atomic expressions for a side are operators which accept an
+    /// operand on that side. `√` is atomic from the left side, but non-atomic
+    /// from the right; `/` is never atomic; delimiters are always atomic; etc.
+    ///
+    /// We also treat function calls as atomic since they are only inferred
+    /// when there is no space between the callee and the delimiters.
+    atom: SyntaxKind,
+    /// The offset of the inner side of the atom.
+    ///
+    /// TODO: Rename to imply that it matches `inner_spaced_op`?
+    inner_offset: usize,
+    /// The wrapper kind of the outermost operator.
+    outer_op: Option<SyntaxKind>,
+    /// The innermost operator with a space on this side.
+    ///
+    /// Spaced operators that have operands with no space next to an adjacent
+    /// expression almost always warn. E.g. `a+b / 2x^2` will warn on both sides
+    /// of the `/`, but `a + b/2 x^2` won't warn at all. The two expressions
+    /// render the same, but the first doesn't match how it's written, so we
+    /// warn.
+    inner_spaced_op: Option<SyntaxKind>,
+}
+
+struct _MathSide {
+    outer_edge: _MathExprEdge,
+    outer_op: Option<SyntaxKind>,
+}
+
+/// The outer edge of a math expression for creating ambiguity warnings.
+enum _MathExprEdge {
+    /// An atomic unit in math.
+    Atom { inner_offset: usize, kind: SyntaxKind, ident_like: bool },
+    /// A tightly parsed expression grouping with no spaces or trivia between
+    /// them.
+    TightGroup { inner_offset: usize, kind: SyntaxKind, outer_token: SyntaxKind },
+}
+
+impl MathSides {
+    /// Set the right atom. Invalidates any right operator.
+    fn set_right_atom(&mut self, atom: SyntaxKind, start: usize) {
+        self.right = MathSideView {
+            atom,
+            inner_offset: start,
+            outer_op: None,
+            inner_spaced_op: None,
+        };
+    }
+
+    /// Update for a prefix operator after recursing for its right child.
+    fn update_prefix_op(
+        &mut self,
+        wrapper: SyntaxKind,
+        spaced_op_kind: Option<SyntaxKind>,
+        rhs_start: usize,
+    ) {
+        let right = &mut self.right;
+        if spaced_op_kind.is_some() && right.inner_spaced_op.is_none() {
+            right.inner_spaced_op = spaced_op_kind;
+            right.inner_offset = rhs_start;
+        }
+        right.outer_op = Some(wrapper);
+    }
+
+    /// Set the initial left atom based on the initial right atom. The left
+    /// atom's kind is either the outermost operator or the initial right atom.
+    fn init_left_atom(&mut self, end: usize) {
+        assert!(self.left.is_none());
+        self.left = Some(MathSideView {
+            atom: self.right.outer_op.unwrap_or(self.right.atom),
+            inner_offset: end,
+            outer_op: None,
+            inner_spaced_op: None,
+        });
+    }
+
+    /// Update for a top-level postfix op.
+    ///
+    /// - `1 |/2`
+    ///
+    /// Top-level is because we don't want to treat `x^` in `a/x^2` as a
+    /// left-atom.
+    fn update_top_level_postfix_op(
+        &mut self,
+        wrapper: SyntaxKind,
+        spaced_op_kind: Option<SyntaxKind>,
+        lhs_end: usize,
+    ) {
+        let Some(l_view) = &mut self.left else { return };
+        if spaced_op_kind.is_some() && l_view.inner_spaced_op.is_none() {
+            l_view.inner_spaced_op = spaced_op_kind;
+            l_view.inner_offset = lhs_end;
+        }
+        l_view.outer_op = Some(wrapper);
+    }
 }
 
 /// Parses a math expression with at least the given precedence, possibly
 /// chaining with another operator by returning early.
-fn math_expr_prec(p: &mut Parser, min_prec: u8, stop_set: SyntaxSet) {
+fn math_expr_prec(
+    p: &mut Parser,
+    sides: &mut MathSides,
+    min_prec: u8,
+    stop_set: SyntaxSet,
+) {
     let Some(p) = &mut p.increase_depth() else { return };
 
     if p.at_set(stop_set) {
@@ -274,6 +590,9 @@ fn math_expr_prec(p: &mut Parser, min_prec: u8, stop_set: SyntaxSet) {
         p.expected("an expression to the right of the operator");
         return;
     }
+
+    let overall_start = p.current_start();
+    let mut root = false;
 
     let m = p.marker();
     // Whether this expression can group with a following open delimiter as an
@@ -288,6 +607,7 @@ fn math_expr_prec(p: &mut Parser, min_prec: u8, stop_set: SyntaxSet) {
             p.eat();
             // Parse a function call for an identifier or field access.
             if MATH_FUNC_PREC >= min_prec && p.directly_at(SyntaxKind::LeftParen) {
+                // This is treated as an atom.
                 math_args(p);
                 p.wrap(m, SyntaxKind::MathCall);
                 continuable = false;
@@ -322,9 +642,13 @@ fn math_expr_prec(p: &mut Parser, min_prec: u8, stop_set: SyntaxSet) {
 
         // The only prefix operator in math.
         SyntaxKind::Root => {
+            root = true;
             p.eat();
+            let rhs_start = p.current_start();
+            let root_space = p.had_trivia().then_some(SyntaxKind::Root);
             let m_rhs = p.marker();
-            math_expr_prec(p, MATH_ROOT_PREC, stop_set);
+            math_expr_prec(p, sides, MATH_ROOT_PREC, stop_set);
+            sides.update_prefix_op(SyntaxKind::MathRoot, root_space, rhs_start);
             math_unparen(p, m_rhs);
             p.wrap(m, SyntaxKind::MathRoot);
         }
@@ -360,8 +684,17 @@ fn math_expr_prec(p: &mut Parser, min_prec: u8, stop_set: SyntaxSet) {
         && !p.had_trivia()
         && p.at_set(syntax_set!(MathOpening, LeftParen))
     {
+        // This is treated as an atom.
         math_delimited(p, min_prec);
         p.wrap(m, SyntaxKind::Math);
+    }
+
+    if !root {
+        // TODO: Use `op_wrapper` here instead.
+        sides.set_right_atom(p[m].kind(), overall_start);
+    }
+    if min_prec == 0 {
+        sides.init_left_atom(p.prev_end());
     }
 
     // Parse infix and postfix operators. The general form of a parsed op looks
@@ -382,6 +715,11 @@ fn math_expr_prec(p: &mut Parser, min_prec: u8, stop_set: SyntaxSet) {
             syntax_set!()
         };
 
+        if min_prec == 0 {
+            let l_op_space = had_trivia.then_some(op_kind);
+            sides.update_top_level_postfix_op(wrapper, l_op_space, p.prev_end());
+        }
+
         // Eat the operator itself.
         if op_kind == SyntaxKind::Bang {
             p.convert_and_eat(SyntaxKind::MathSymbol);
@@ -400,9 +738,14 @@ fn math_expr_prec(p: &mut Parser, min_prec: u8, stop_set: SyntaxSet) {
                 ast::Assoc::Left => prec + 1,
                 ast::Assoc::Right => prec,
             };
+            let rhs_start = p.current_start();
+            let r_op_space = p.had_trivia().then_some(op_kind);
             let m_rhs = p.marker();
-            math_expr_prec(p, prec, stop_set.union(chain_set));
+            math_expr_prec(p, sides, prec, stop_set.union(chain_set));
+            sides.update_prefix_op(wrapper, r_op_space, rhs_start);
             math_unparen(p, m_rhs);
+        } else {
+            sides.set_right_atom(wrapper, overall_start);
         }
 
         // Avoid interrupting a chain when initially parsing a prime.
@@ -411,9 +754,15 @@ fn math_expr_prec(p: &mut Parser, min_prec: u8, stop_set: SyntaxSet) {
             // Parse chained attachment operators as a single attachment.
             while p.at_set(chain_set) {
                 chain_set = chain_set.remove(p.current());
+                let chain_kind = p.current();
                 p.eat();
+                let rhs_start = p.current_start();
+                let chain_space = p.had_trivia().then_some(chain_kind);
                 let m_chain_rhs = p.marker();
-                math_expr_prec(p, prec, stop_set.union(chain_set));
+                math_expr_prec(p, sides, prec, stop_set.union(chain_set));
+                // TODO: Merging op_space doesn't work well for chained
+                // attachments like `$ 1/x_ 2^3pi $`
+                sides.update_prefix_op(wrapper, chain_space, rhs_start);
                 math_unparen(p, m_chain_rhs);
             }
         }
@@ -443,6 +792,20 @@ fn math_op(
     Some(op)
 }
 
+/// A math operator's character.
+///
+/// TODO: Use this in spaced operator warnings.
+fn _math_op_char(kind: SyntaxKind, text: &str) -> Option<char> {
+    match kind {
+        SyntaxKind::Slash => Some('/'),
+        SyntaxKind::Hat => Some('^'),
+        SyntaxKind::Underscore => Some('_'),
+        SyntaxKind::Bang => Some('!'),
+        SyntaxKind::Root | SyntaxKind::MathPrimes => text.chars().next(),
+        _ => None,
+    }
+}
+
 /// Parse matched delimiters in math: `[x + y]`.
 ///
 /// `{Left,Right}Paren` need to be converted to `Math{Opening,Closing}` since we
@@ -453,7 +816,8 @@ fn math_delimited(p: &mut Parser, prec: u8) {
     p.convert_and_eat(SyntaxKind::MathOpening); // Converts `LeftParen`.
 
     let m_body = p.marker();
-    math_exprs(p, syntax_set!(Dollar, End, MathClosing, RightParen));
+    let (_, warning_index) =
+        math_exprs(p, syntax_set!(Dollar, End, MathClosing, RightParen));
 
     if !p.at_set(syntax_set!(MathClosing, RightParen)) {
         if prec > 0 {
@@ -468,7 +832,7 @@ fn math_delimited(p: &mut Parser, prec: u8) {
         return;
     }
 
-    p.wrap(m_body, SyntaxKind::Math);
+    p.wrap_math_with_warnings(m_body, warning_index);
     p.convert_and_eat(SyntaxKind::MathClosing); // Converts `RightParen`.
     p.wrap(m, SyntaxKind::MathDelimited);
 }
@@ -559,7 +923,8 @@ fn math_arg<'s>(p: &mut Parser<'s>, seen: &mut FxHashSet<&'s str>) {
 
     // Parses the argument itself.
     let m_arg = p.marker();
-    let count = math_exprs(p, syntax_set!(End, Dollar, Comma, Semicolon, RightParen));
+    let (count, warning_index) =
+        math_exprs(p, syntax_set!(End, Dollar, Comma, Semicolon, RightParen));
 
     if count == 0 {
         // This can't happen due to checks in `Lexer::maybe_math_spread_arg`.
@@ -577,7 +942,7 @@ fn math_arg<'s>(p: &mut Parser<'s>, seen: &mut FxHashSet<&'s str>) {
     // from potentially non-content to content. E.g. `$ func(#12pt) $` would
     // change the type of `#12pt` from size to content if wrapped.
     if count != 1 {
-        p.wrap(m_arg, SyntaxKind::Math);
+        p.wrap_math_with_warnings(m_arg, warning_index);
     }
 
     if let Some(kind) = arg_kind {
@@ -1560,6 +1925,14 @@ struct Parser<'s> {
     /// backtracking similar to packrat parsing. See comments above in
     /// [`expr_with_paren`].
     memo: MemoArena,
+    /// An arena for warnings in math. Allows us to avoid allocating new vectors
+    /// for each call to [`math_exprs`].
+    ///
+    /// Calls to [`math_exprs`] store the current length and are in charge of
+    /// any warnings added beyond that length.
+    ///
+    /// TODO: Does this need interact with memoization?
+    math_warnings: Vec<MathAmbiguity>,
     /// The current expression nesting depth.
     depth: u32,
 }
@@ -1671,6 +2044,7 @@ impl<'s> Parser<'s> {
             balanced: true,
             nodes,
             memo: MemoArena::default(),
+            math_warnings: vec![],
             depth: 0,
         }
     }
@@ -1685,6 +2059,18 @@ impl<'s> Parser<'s> {
         assert!(self.at(SyntaxKind::End));
         SyntaxNode::inner(kind, self.finish())
     }
+
+    // /// Consume the parser, yielding the full vector of parsed [`SyntaxNode`]s.
+    // fn finish(self) -> Vec<SyntaxNode> {
+    //     assert!(self.math_warnings.is_empty()); // TODO: Test during reparsing.
+    //     self.nodes
+    // }
+
+    // /// Consume the parser, yielding the first parsed [`SyntaxNode`].
+    // fn finish_single_node(self) -> SyntaxNode {
+    //     assert!(self.math_warnings.is_empty()); // TODO: Test during reparsing.
+    //     self.nodes.into_iter().next().unwrap()
+    // }
 
     /// Similar to a `peek()` function: returns the `kind` of the next token to
     /// be eaten.
@@ -1754,7 +2140,7 @@ impl<'s> Parser<'s> {
     }
 }
 
-// The main parsing interface for generating tokens and eating/modifying nodes.
+/// The main parsing interface for generating tokens and eating/modifying nodes.
 impl<'s> Parser<'s> {
     /// A marker that will point to the current token in the parser once it's
     /// been eaten.
@@ -2013,6 +2399,45 @@ impl Parser<'_> {
             token: self.token.clone(),
         };
         Checkpoint { node_len, state }
+    }
+}
+
+/// An index into the math warnings vector which allows calling
+/// [`Parser::wrap_math_with_warnings`].
+#[must_use]
+struct MathWarningIndex {
+    vec_index: usize,
+    text_offset: usize,
+}
+
+/// Functions for storing math warnings in a vector.
+impl Parser<'_> {
+    /// Get an index for math warnings.
+    fn math_warning_index(&self) -> MathWarningIndex {
+        MathWarningIndex {
+            vec_index: self.math_warnings.len(),
+            text_offset: self.current_start(),
+        }
+    }
+
+    /// Push a new math warning.
+    fn push_math_warning(&mut self, math_warning: MathAmbiguity) {
+        self.math_warnings.push(math_warning);
+    }
+
+    /// Wrap in [`SyntaxKind::Math`] and apply math ambiguity warnings from the
+    /// given warning index.
+    fn wrap_math_with_warnings(
+        &mut self,
+        marker: Marker,
+        MathWarningIndex { vec_index, text_offset }: MathWarningIndex,
+    ) {
+        self.wrap(marker, SyntaxKind::Math);
+        let node = &mut self.nodes[marker.0];
+        // Reverse order so the earlier warnings are on the outside.
+        for ambiguity in self.math_warnings.drain(vec_index..).rev() {
+            ambiguity.warn(self.text, node, text_offset);
+        }
     }
 }
 

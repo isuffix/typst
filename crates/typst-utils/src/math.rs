@@ -62,3 +62,22 @@ pub fn matching_delim(c: char) -> Option<char> {
         },
     }
 }
+
+/// Whether a character's [`MathClass`] is `Vary` or `Unary`, indicating that it
+/// may be used as a prefix operator in math notation.
+///
+/// This is mildly optimized by only matching on the 11 actual `Vary`/`Unary`
+/// codepoints instead of calling into [`default_math_class`].
+///
+/// Note that ∇ U+2207 NABLA does have bold/italic/sans-serif variants whose
+/// math classes are `Alphabetic` instead of `Unary`. Also ∆ U+2206 INCREMENT
+/// (`Unary`) differs from Δ U+ 0394 GREEK CAPITAL LETTER DELTA (`Alphabetic`).
+pub fn math_class_vary_unary(c: char) -> bool {
+    let vary_unary =
+        matches!(c, '+' | '¬' | '±' | '∀' | '∁' | '∃' | '∄' | '∆' | '∇' | '−' | '∓');
+    debug_assert_eq!(
+        vary_unary,
+        matches!(default_math_class(c), Some(MathClass::Vary | MathClass::Unary)),
+    );
+    vary_unary
+}
